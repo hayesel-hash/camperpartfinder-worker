@@ -914,8 +914,56 @@ def distributor_oem_rows(page,p):
     return found
 
 
+
+def thetford_parts_list_supersessions(page,p):
+    """Recover directional old->new facts from manufacturer parts-list columns.
+    Require an explicit Part No. heading and a same-row description containing
+    'Superseded by'. Do not treat adjacent numbers as equivalent.
+    """
+    words=page.get_text("words")
+    lines=[]
+    for w in sorted(words,key=lambda v:(v[1],v[0])):
+        if not lines or abs(w[1]-lines[-1][0][1])>3.5:lines.append([w])
+        else:lines[-1].append(w)
+    lines=[sorted(row,key=lambda v:v[0]) for row in lines]
+    headings=[]
+    for idx,row in enumerate(lines):
+        for i in range(len(row)):
+            for count in (2,3):
+                group=row[i:i+count]
+                if len(group)!=count or any(b[0]-a[2]>18 for a,b in zip(group,group[1:])):continue
+                header=" ".join(w[4] for w in group).strip().lower()
+                if header in ("part no.","part no","part number","part nr.","part nr"):
+                    ds=[w for w in row if w[0]>group[0][0]+50 and w[4].lower() in ("description","beschreibung","bezeichnung")]
+                    if len(ds)==1:headings.append((idx,group[0][0],ds[0][0]))
+    out=[]
+    for hi,ident_x,desc_x in headings:
+        prev=lines[hi][0][1]
+        for line in lines[hi+1:]:
+            y=line[0][1]
+            if y-prev>55 or y-lines[hi][0][1]>650:break
+            prev=y
+            matches=[w for w in line if abs(w[0]-ident_x)<45 and re.fullmatch(r"\d{5,9}\*?",w[4])]
+            if len(matches)!=1:continue
+            oldw=matches[0];old=oldw[4].rstrip("*")
+            desc_words=[w for w in line if w[0]>=desc_x-25 and w is not oldw]
+            if not desc_words or abs(desc_words[0][0]-desc_x)>45:continue
+            label=" ".join(w[4] for w in desc_words).strip()
+            m=re.fullmatch(r"Superseded\s+(?:by\s+)?([A-Z0-9][A-Z0-9./-]{3,24})(?:\s*\*)?",label,re.I)
+            if not m:continue
+            new=m[1].rstrip("*")
+            if new==old or not re.search(r"\d",new):continue
+            out.append({"page":p,"original":old,"replacement":new,
+                "statement":old+" Superseded by "+new,
+                "source_statement":label,
+                "position":f"x{round(oldw[0])} y{round(y)}",
+                "method":"thetford-pl-supersession-v7","kind":"supersession",
+                "table_heading":"Part No. | Description"})
+    return list({(r["page"],r["original"],r["replacement"]):r for r in out}.values())
+
+
 def relationship_rows(page,p):
-    rows=explicit_replacement_rows(page,p)+replacement_table_rows(page,p)+replacement_sentence_rows(page,p)
+    rows=explicit_replacement_rows(page,p)+replacement_table_rows(page,p)+replacement_sentence_rows(page,p)+thetford_parts_list_supersessions(page,p)
     # Preserve the page-level scope. Automatic verification is limited to
     # standalone statements on pages without visible qualification signals.
     text=page.get_text("text")
@@ -1018,7 +1066,7 @@ def main(work_mode='any'):
                         distributor_oems = [r for p in range(job["page_start"],job["page_end"]+1) for r in distributor_oem_rows(doc[p-1],p)] if job.get("authority")=="distributor" else []
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v6","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v3","distributor_oems":distributor_oems,"replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v6","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v7","distributor_oems":distributor_oems,"replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
@@ -1146,6 +1194,25 @@ def discover_repositories():
 
 
 def self_test():
+    with pymupdf.open() as doc:
+        p=doc.new_page()
+        p.insert_text((40,50),"Part No.")
+        p.insert_text((180,50),"Description")
+        p.insert_text((40,70),"33342")
+        p.insert_text((180,70),"Superseded by 16451")
+        p.insert_text((40,90),"33368")
+        p.insert_text((180,90),"Superseded by 29027")
+        p.insert_text((40,110),"92907")
+        p.insert_text((180,110),"Superseded by 92907")
+        matches=thetford_parts_list_supersessions(p,1)
+        assert {(r["original"],r["replacement"]) for r in matches}=={("33342","16451"),("33368","29027")},matches
+        assert all(r["method"]=="thetford-pl-supersession-v7" for r in matches)
+    with pymupdf.open() as doc:
+        p=doc.new_page()
+        p.insert_text((40,50),"33342 Superseded by 16451")
+        assert not thetford_parts_list_supersessions(p,1)
+
+    
     with pymupdf.open() as doc:
         p=doc.new_page()
         p.insert_text((45,40),"Old part number")
