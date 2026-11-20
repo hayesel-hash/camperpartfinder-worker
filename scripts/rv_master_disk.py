@@ -671,6 +671,69 @@ def page_layout_signals(page):
     explicit=len(re.findall(OEM_LABEL.pattern+"|"+LOCAL_LABEL.pattern,t,re.I))
     return {"explicit_labels":explicit,"tokens":sum(valid_local_code(w[4]) for w in words),"images":len(page.get_images(full=False))}
 
+
+def synthesise_layouts(page,p,authority="manufacturer"):
+    """Generate spatial extraction programs from explicit headings, not executable
+    code. Search row geometry and validate each hypothesis against held-out rows.
+    Distributor local order numbers are never treated as OEM evidence here.
+    """
+    label=OEM_LABEL if authority=="distributor" else re.compile("(?:"+OEM_LABEL.pattern+"|"+LOCAL_LABEL.pattern+"|"+ADAPT_HEADER.pattern+")",re.I)
+    desc_label=re.compile(r"(?:description|designation|bezeichnung|benennung|omschrijving|désignation|part name|description of (?:spare )?parts|descrizione|descripción)",re.I)
+    words=page.get_text("words")
+    if not words:return [],[]
+    commands=[]; results=[]
+    # Generate candidate geometry from different baseline alignments observed on this page.
+    for tol in (2,4,7):
+        lines=[]
+        for w in sorted(words,key=lambda z:(z[1],z[0])):
+            if not lines or abs(w[1]-lines[-1][0][1])>tol:lines.append([w])
+            else:lines[-1].append(w)
+        lines=[sorted(row,key=lambda z:z[0]) for row in lines]
+        for hi,line in enumerate(lines):
+            heads=[]
+            for j in range(len(line)):
+                for k in range(1,5):
+                    ws=line[j:j+k]
+                    if len(ws)!=k or any(b[0]-a[2]>18 for a,b in zip(ws,ws[1:])):continue
+                    t=" ".join(w[4] for w in ws).rstrip(":")
+                    kind="id" if label.fullmatch(t) else "desc" if desc_label.fullmatch(t) else None
+                    if kind:heads.append((kind,ws[0][0],ws[-1][2],t))
+            heads=[h for h in heads if not any(z[0]==h[0] and z[1]<=h[1] and z[2]>=h[2] and z[2]-z[1]>h[2]-h[1]+1 for z in heads)]
+            ids=[h for h in heads if h[0]=="id"]; ds=[h for h in heads if h[0]=="desc"]
+            if len(ids)!=1 or len(ds)!=1:continue
+            if re.search(r"\b(?:supplier|vendor|brand|hersteller|manufacturer)\b"," ".join(w[4] for w in line),re.I) and authority!="distributor":continue
+            ident,desc=ids[0],ds[0]
+            if abs(ident[1]-desc[1])<25:continue
+            # Observe exact word positions; infer robust column anchors from labelled rows.
+            rows=[]; prev=line[0][1]
+            for line2 in lines[hi+1:]:
+                y=line2[0][1]; txt=" ".join(w[4] for w in line2)
+                if y-prev>55 or re.search(r"\b(?:warning|caution|specifications|part number|description|bezeichnung|artikelnummer)\b",txt,re.I):break
+                prev=y
+                candidates=[w for w in line2 if valid_local_code(w[4]) and (abs(w[0]-ident[1])<=45 or abs(w[2]-ident[2])<=45) and (w[2]<desc[1] if ident[1]<desc[1] else w[0]>desc[2])]
+                if len(candidates)!=1:continue
+                w=candidates[0]
+                d=[v for v in line2 if v[0]>=desc[1]-14 and (v[2]<w[0]-5 if desc[1]<ident[1] else v[0]>w[2])]
+                if not d or abs(d[0][0]-desc[1])>30:continue
+                name=" ".join(v[4] for v in d)
+                if len(name)>240 or not re.search(r"[A-Za-z]{3}",name) or re.match(r"^(?:price|model|serial|qty|quantity|voltage|page|dimension)\b",name,re.I):continue
+                rows.append((w,name))
+            if len(rows)<3:continue
+            # Derive candidate anchor and tolerance only from alternating training rows.
+            train=rows[::2]; test=rows[1::2]
+            for side in (0,2):
+                xs=sorted(w[side] for w,_ in train); anchor=xs[len(xs)//2]; radius=max(4,max(abs(x-anchor) for x in xs)+2)
+                if radius>22 or not test or any(abs(w[side]-anchor)>radius for w,_ in test):continue
+                cfg={"row_tolerance":tol,"anchor_side":side,"anchor":round(anchor/page.rect.width,4),"radius":round(radius/page.rect.width,4),"id_header":ident[3].lower(),"desc_header":desc[3].lower(),"train":len(train),"holdout":len(test),"yield":len(rows)}
+                sid=hashlib.sha256(json.dumps(cfg,sort_keys=True).encode()).hexdigest()[:16]
+                cfg["id"]=sid
+                commands.append(cfg)
+                for w,name in rows:
+                    results.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])}","description":name,"method":"synthesised-layout-v5"})
+    # No publication authority is granted by a geometric holdout alone.
+    return list({(r["number"],r["position"]):r for r in results}.values()),sorted(commands,key=lambda c:(-c["yield"],c["radius"],c["id"]))[:12]
+
+
 def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     # Union independent layout strategies; prefer existing exact table cells
     # for matching identities. No second parser is required for publication.
@@ -688,10 +751,12 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     methods["learned"]=learned_rows(page,p,(family_profile or {}).get("profiles",[]))
     methods["pattern_guided"]=pattern_guided_rows(page,p,(family_profile or {}).get("number_patterns",[]))
     methods["spatial_card"]=spatial_identity_rows(page,p,authority)
+    generated,strategies=synthesise_layouts(page,p,authority)
+    methods["synthesised"]=generated
     chosen={}
     for name,rows in methods.items():
         for row in rows: chosen.setdefault(row["number"],row)
-    return list(chosen.values()),{"page":p,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
+    return list(chosen.values()),{"page":p,"generated_strategies":strategies,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
 
 def finish_with_recovery(action, args, call=rpc, sleep=time.sleep):
@@ -879,7 +944,7 @@ def main(work_mode='any'):
                         replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in relationship_rows(doc[p-1],p)]
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v4","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v5","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
@@ -1007,6 +1072,19 @@ def discover_repositories():
 
 
 def self_test():
+    with pymupdf.open() as doc:
+        page=doc.new_page()
+        for x,y,t in [(40,50,"Part No."),(180,50,"Description"),(70,70,"AB12345"),(180,70,"Water valve"),(70,90,"AB12346"),(180,90,"Drain plug"),(70,110,"AB12347"),(180,110,"Seal ring"),(70,130,"AB12348"),(180,130,"Pump housing")]:page.insert_text((x,y),t)
+        rows,strategies=synthesise_layouts(page,1)
+        assert {r["number"] for r in rows}=={"AB12345","AB12346","AB12347","AB12348"},(rows,strategies)
+        assert strategies and all(c["holdout"]>=1 for c in strategies)
+        assert not synthesise_layouts(page,1,"distributor")[0]
+        assert all(r["method"]=="synthesised-layout-v5" for r in rows)
+    with pymupdf.open() as doc:
+        page=doc.new_page()
+        page.insert_text((40,50),"AB12345 AB12346 AB12347")
+        assert not synthesise_layouts(page,1)[0]
+
     with pymupdf.open() as doc:
         page=doc.new_page()
         page.insert_text((40,50),"Art.-Nr. 123456 Brake assembly")
