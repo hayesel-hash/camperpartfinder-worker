@@ -670,6 +670,48 @@ def explicit_replacement_rows(page,p):
             out.append({"page":p,"original":m[1],"replacement":m[3],"statement":t,"position":f"x{round(x)} y{round(y)}","method":"explicit-directional-line-v1","kind":"supersession" if m[2].lower()=="superseded by" else "replacement"})
     return out
 
+def replacement_table_rows(page,p):
+    # Deliberately narrow headings: no generic cross-reference equivalence.
+    old=r"(?:old|original|obsolete|superseded|discontinued) (?:part )?(?:number|no\\.?|#)"
+    new=r"(?:replacement|new|superseding|successor) (?:part )?(?:number|no\\.?|#)"
+    code=r"[A-Z0-9][A-Z0-9.-]{3,24}"
+    out=[]
+    for strategy in ("lines","text"):
+        try:
+            tables=page.find_tables(strategy=strategy).tables
+        except Exception:
+            continue
+        for table in tables:
+            data=table.extract()
+            for h,row in enumerate(data[:4]):
+                cells=[" ".join(str(c or "").split()) for c in row]
+                a=[i for i,c in enumerate(cells) if re.fullmatch(old,c,re.I)]
+                b=[i for i,c in enumerate(cells) if re.fullmatch(new,c,re.I)]
+                if len(a)!=1 or len(b)!=1 or a[0]==b[0]: continue
+                # Other columns may encode conditions: hold rather than erase them.
+                if len(cells)!=2: continue
+                for ri,r in enumerate(data[h+1:],h+1):
+                    if len(r)!=2: continue
+                    o,n=(str(r[i] or "").strip() for i in (a[0],b[0]))
+                    if not all(re.fullmatch(code,x) and re.search(r"\\d",x) and not re.fullmatch(r"\\d{4}",x) for x in (o,n)) or o==n: continue
+                    box=table.rows[ri].cells[a[0]]
+                    if not box: continue
+                    out.append({"page":p,"original":o,"replacement":n,"statement":cells[a[0]]+": "+o+" | "+cells[b[0]]+": "+n,"position":f"x{round(box[0])} y{round(box[1])}","method":"explicit-directional-table-v2","kind":"replacement","old_header":cells[a[0]],"new_header":cells[b[0]]})
+                break
+        if out: break
+    return out
+
+def relationship_rows(page,p):
+    rows=explicit_replacement_rows(page,p)+replacement_table_rows(page,p)
+    # Preserve the page-level scope. Automatic verification is limited to
+    # standalone statements on pages without visible qualification signals.
+    text=page.get_text("text")
+    conditional=bool(re.search(r"\\b(?:except|only|unless|requires?|depending|if|serial|chassis|adapter|kit|not compatible|not interchangeable|footnote|note[s]?)\\b|[*†‡]",text,re.I))
+    for r in rows:
+        r["page_qualifiers_detected"]=conditional
+        r["page_text_sha256"]=hashlib.sha256(text.encode()).hexdigest()
+    return rows
+
 def main(work_mode='any'):
     claim_action = {'any':'claim','manifest':'claim_manifest','batch':'claim_batch'}[work_mode]
     deadline = time.monotonic() + 20 * 60
@@ -735,10 +777,10 @@ def main(work_mode='any'):
                                 rows.extend(found); sample.append(metrics)
                         else:
                             rows = [r for p in range(job["page_start"], job["page_end"]+1) for r in page_rows(doc[p-1], p, adapter)]
-                        replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in explicit_replacement_rows(doc[p-1],p)]
+                        replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in relationship_rows(doc[p-1],p)]
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v2","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v1","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v2","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
