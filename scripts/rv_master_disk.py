@@ -51,7 +51,8 @@ OPENER = urllib.request.build_opener(NoRedirect())
 
 def checked(url):
     u = urllib.parse.urlsplit(url)
-    if u.scheme != "https" or u.hostname not in HOSTS or u.username or u.password or u.port:
+    knott_cdn = u.hostname == "cdn.shopify.com" and (u.path == "/robots.txt" or (u.path.startswith("/s/files/1/0927/2360/9934/files/") and re.search(r"\.pdf$",u.path,re.I) and not any(x in urllib.parse.unquote(u.path) for x in ("..", "\\"))))
+    if u.scheme != "https" or (u.hostname not in HOSTS and not knott_cdn) or u.username or u.password or u.port:
         raise Held("source host not allowlisted")
     return u
 
@@ -577,12 +578,29 @@ def pattern_guided_rows(page,p,patterns):
         if len({r["number"] for r in candidates})>=2:out.extend(candidates)
     return out
 
+def labelled_card_rows(page,p):
+    """Recover explicit part labels on illustrated product cards, including German labels."""
+    out=[]
+    label=r"(?:part\s*(?:no\.?|number|#|nr\.?)|p\s*/\s*n|artikel\s*(?:nummer|[-.]?\s*nr\.?)|ersatzteil\s*(?:nummer|[-.]?\s*nr\.?)|bestell\s*(?:nummer|[-.]?\s*nr\.?))"
+    code=r"[A-Z0-9][A-Z0-9./-]{3,24}"
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines",[]):
+            t=" ".join(span["text"] for span in line["spans"]).strip()
+            m=re.fullmatch(label+r"\s*[:=]?\s*("+code+r")(?:\s+[–—-]\s+([A-Za-zÄÖÜäöü].{2,180}))?",t,re.I)
+            if not m or not re.search(r"\d",m[1]) or re.fullmatch(r"\d{4}|\d+\.\d{1,2}",m[1]):continue
+            x,y,*_=line["bbox"]
+            row={"page":p,"number":m[1],"position":f"x{round(x)} y{round(y)}","method":"labelled-column-v1"}
+            if m[2]:row["description"]=m[2]
+            out.append(row)
+    return out
+
+
 def adaptive_page(page,p,adapter,family_profile=None):
     # Union independent layout strategies; prefer existing exact table cells
     # for matching identities. No second parser is required for publication.
     methods={}
     errors={}
-    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows)):
+    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows)):
         try: methods[name]=fn(page,p)
         except Exception as exc:
             methods[name]=[]
@@ -780,7 +798,7 @@ def main(work_mode='any'):
                         replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in relationship_rows(doc[p-1],p)]
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v2","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v3","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
@@ -891,7 +909,7 @@ def discover_repositories():
             # Validate manufacturer PDF candidates before promotion. Keep bounded
             # listing frontier and give remaining untested candidates a subsequent scan.
             if job.get("kind") == "manufacturer":
-                links = [r for r in links if urllib.parse.urlsplit(r["url"]).hostname == job["host"]]
+                links = [r for r in links if urllib.parse.urlsplit(r["url"]).hostname == job["host"] or (job["host"] == "www.knott.de" and r["url"].startswith("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/"))]
                 pdfs = [r for r in links if re.search(r"\\.pdf(?:$|[?])",r["url"],re.I) and re.search(r"parts|spare|ersatz|catalog|katalog|supersession|cross.reference",r["url"]+" "+r["title"],re.I)]
                 listings = [r for r in links if not re.search(r"\\.pdf(?:$|[?])",r["url"],re.I)]
                 verified = [dict(r, validated_pdf=True) for r in pdfs[:40] if validate_catalogue_link(r["url"])]
@@ -905,6 +923,19 @@ def discover_repositories():
 
 
 def self_test():
+    assert checked("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/Katalog.pdf").hostname == "cdn.shopify.com"
+    try:
+        checked("https://cdn.shopify.com/s/files/1/9999/files/Katalog.pdf")
+        raise AssertionError("unrelated CDN tenant accepted")
+    except Held:
+        pass
+    with pymupdf.open() as doc:
+        page=doc.new_page()
+        page.insert_text((50,50),"Artikel-Nr. 123456 - Brake assembly")
+        page.insert_text((50,75),"Model 123456")
+        page.insert_text((50,100),"Part No. AB12345")
+        assert {r["number"] for r in labelled_card_rows(page,1)}=={"123456","AB12345"}
+
     assert not eligible_catalogue_link("https://www.winnebago.com/Admin/Public/Download.aspx?file=Files/OperatorManuals/08Vista.pdf", "Vista")
     assert eligible_catalogue_link("https://www.winnebago.com/OperatorManuals/", "Library")
     assert eligible_catalogue_link("https://www.winnebago.com/OperatorManuals/parts.pdf", "Replacement parts catalogue")
