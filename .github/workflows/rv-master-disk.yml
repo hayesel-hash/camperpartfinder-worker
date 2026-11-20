@@ -1,0 +1,49 @@
+name: RV master catalogue disk worker
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rv-master-disk.yml'
+      - 'scripts/rv_master_disk.py'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  ingest:
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        worker: [discover, acquire, extract-1, extract-2, extract-3, extract-4]
+    concurrency:
+      group: rv-master-disk-${{ matrix.worker }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install OCR engines and pinned Python dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr gocr poppler-utils
+          python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
+          tesseract --version
+          gocr -h >/dev/null 2>&1 || test -x "$(command -v gocr)"
+          python3 -c 'import pymupdf; from PIL import Image; print("OCR Python dependencies available")'
+      - name: Test extraction
+        run: python3 scripts/rv_master_disk.py --self-test
+      - name: Process catalogue queue
+        env:
+          RV_WORKER: ${{ matrix.worker }}
+        run: |
+          case "$RV_WORKER" in
+            discover) python3 scripts/rv_master_disk.py --discovery-only ;;
+            acquire) python3 scripts/rv_master_disk.py --manifest-only ;;
+            extract-*) python3 scripts/rv_master_disk.py --batch-only ;;
+            *) exit 1 ;;
+          esac
