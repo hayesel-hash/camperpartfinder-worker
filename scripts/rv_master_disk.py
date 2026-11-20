@@ -1156,12 +1156,12 @@ def self_test():
         t=doc.new_page()
         t.insert_text((40,50),"Part AB12345 replaced by part AB12346")
         assert len(replacement_sentence_rows(t,2))==1
-        assert not replacement_sentence_rows(p,1)
+        assert not replacement_sentence_rows(doc[0],1)
         o=doc.new_page()
         o.insert_text((40,50),"Manufacturer: Dometic OEM No: AB12345 - Water valve")
         o.insert_text((40,70),"Retailer SKU: AB12346")
         assert [(x["manufacturer"],x["number"]) for x in distributor_oem_rows(o,3)]==[("Dometic","AB12345")]
-        assert not distributor_oem_rows(p,1)
+        assert not distributor_oem_rows(doc[0],1)
         assert not relationship_rows(o,3)
     
     with pymupdf.open() as doc:
