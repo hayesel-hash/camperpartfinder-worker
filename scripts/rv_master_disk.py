@@ -633,7 +633,45 @@ def labelled_card_rows(page,p):
     return out
 
 
-def adaptive_page(page,p,adapter,family_profile=None):
+# V4: explicit multilingual identity labels and locally bounded spatial association.
+# A distributor article/order number is not an OEM number.
+OEM_LABEL = re.compile(r"(?:manufacturer(?:'s)?\s*(?:part\s*)?(?:no\.?|number|code)|hersteller\s*[- ]?\s*(?:nr\.?|nummer)|herst\.?\s*[- ]?\s*nr\.?|oem\s*(?:no\.?|number|nr\.?|code)|original\s*(?:teil\s*)?(?:nr\.?|nummer))",re.I)
+LOCAL_LABEL = re.compile(r"(?:part\s*(?:no\.?|number|#|nr\.?|code)|p\s*/\s*n|artikel\s*[-.]?\s*(?:nr\.?|nummer)|art\.?\s*[-.]?\s*nr\.?|ersatzteil\s*[-.]?\s*(?:nr\.?|nummer)|bestell\s*[-.]?\s*(?:nr\.?|nummer)|réf(?:érence)?\.?\s*(?:pièce)?|onderdeelnummer|codice\s*(?:ricambio|articolo)|referencia\s*(?:pieza|recambio)|item\s*(?:no\.?|number|code)|article\s*(?:no\.?|number|code))",re.I)
+PART_TOKEN = re.compile(r"[A-Z0-9][A-Z0-9.-]{3,24}")
+def valid_local_code(s):
+    return bool(PART_TOKEN.fullmatch(s) and re.search(r"\d",s) and not re.fullmatch(r"\d{4}|\d+\.\d{1,2}",s))
+def spatial_identity_rows(page,p,authority="manufacturer"):
+    """Explicit labels on product cards/diagrams, same or next line in same block.
+    Never guess an OEM from a distributor's order number. Keep candidates staged.
+    """
+    label=OEM_LABEL if authority=="distributor" else re.compile("(?:"+OEM_LABEL.pattern+"|"+LOCAL_LABEL.pattern+")",re.I)
+    out=[]
+    for block in page.get_text("dict")["blocks"]:
+        lines=[(" ".join(x["text"] for x in line["spans"]).strip(),line["bbox"]) for line in block.get("lines",[])]
+        for i,(t,box) in enumerate(lines):
+            m=re.fullmatch(r"("+label.pattern+r")\s*[:=]?\s*([A-Z0-9][A-Z0-9.-]{3,24})(?:\s+[-–—:]?\s*([A-Za-zÄÖÜäöü].{2,180}))?",t,re.I)
+            if m:
+                num=m[2]; desc=m[3]; loc=box
+            elif label.fullmatch(t.rstrip(":=")) and i+1<len(lines):
+                nxt,loc=lines[i+1]
+                if loc[1]-box[3]>26 or abs(loc[0]-box[0])>30:continue
+                m2=re.fullmatch(r"([A-Z0-9][A-Z0-9.-]{3,24})(?:\s+[-–—:]?\s*([A-Za-zÄÖÜäöü].{2,180}))?",nxt,re.I)
+                if not m2:continue
+                num,desc=m2.groups()
+            else:continue
+            if not valid_local_code(num):continue
+            if desc and re.match(r"^(?:price|model|serial|voltage|dimension|qty|quantity|page|preis|gewicht)\b",desc,re.I):continue
+            row={"page":p,"number":num,"position":f"x{round(loc[0])} y{round(loc[1])}","method":"explicit-card-v4"}
+            if desc:row["description"]=desc
+            out.append(row)
+    return out
+
+def page_layout_signals(page):
+    words=page.get_text("words"); t=page.get_text()
+    explicit=len(re.findall(OEM_LABEL.pattern+"|"+LOCAL_LABEL.pattern,t,re.I))
+    return {"explicit_labels":explicit,"tokens":sum(valid_local_code(w[4]) for w in words),"images":len(page.get_images(full=False))}
+
+def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     # Union independent layout strategies; prefer existing exact table cells
     # for matching identities. No second parser is required for publication.
     methods={}
@@ -649,10 +687,11 @@ def adaptive_page(page,p,adapter,family_profile=None):
     if adapter=="hwh-code-v1": methods["hwh_exact"]=hwh_rows(page,p)
     methods["learned"]=learned_rows(page,p,(family_profile or {}).get("profiles",[]))
     methods["pattern_guided"]=pattern_guided_rows(page,p,(family_profile or {}).get("number_patterns",[]))
+    methods["spatial_card"]=spatial_identity_rows(page,p,authority)
     chosen={}
     for name,rows in methods.items():
         for row in rows: chosen.setdefault(row["number"],row)
-    return list(chosen.values()),{"page":p,"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
+    return list(chosen.values()),{"page":p,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
 
 def finish_with_recovery(action, args, call=rpc, sleep=time.sleep):
@@ -828,7 +867,7 @@ def main(work_mode='any'):
                         if adapter in ("generic-table-v1","suburban-kit-v2","coleman-stock-v2","adaptive-table-v3","hwh-code-v1"):
                             rows = []
                             for p in range(job["page_start"],job["page_end"]+1):
-                                found,metrics=adaptive_page(doc[p-1],p,adapter,job.get("family_profile"))
+                                found,metrics=adaptive_page(doc[p-1],p,adapter,job.get("family_profile"),job.get("authority","manufacturer"))
                                 if not metrics["words"] and not found:
                                     try:
                                         metrics["ocr_preview"]=ocr_preview(doc[p-1],p)
@@ -840,7 +879,7 @@ def main(work_mode='any'):
                         replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in relationship_rows(doc[p-1],p)]
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v3","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v4","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
@@ -968,6 +1007,15 @@ def discover_repositories():
 
 
 def self_test():
+    with pymupdf.open() as doc:
+        page=doc.new_page()
+        page.insert_text((40,50),"Art.-Nr. 123456 Brake assembly")
+        page.insert_text((40,80),"OEM No. AB12345 Water valve")
+        page.insert_text((40,110),"Model 123456")
+        assert {r["number"] for r in spatial_identity_rows(page,1)}=={"123456","AB12345"}
+        assert {r["number"] for r in spatial_identity_rows(page,1,"distributor")}=={"AB12345"}
+        assert page_layout_signals(page)["explicit_labels"]>=2
+
     calls=[]; pauses=[]
     def claim_flaky(action):
         calls.append(action)
