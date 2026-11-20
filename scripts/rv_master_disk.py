@@ -822,6 +822,15 @@ class CatalogueLinks(HTMLParser):
         self.title = []
 
 
+def validate_catalogue_link(url):
+    # A bounded GET verifies real PDF magic, not an HTML soft-404 or misleading suffix.
+    try:
+        with open_catalogue(url) as response:
+            return response.read(5) == b"%PDF-"
+    except (Held, OSError, urllib.error.URLError):
+        return False
+
+
 def discover_repositories():
     for _ in range(8):
         job = rpc("repository_claim")
@@ -830,14 +839,23 @@ def discover_repositories():
         details = {"links":[]}
         try:
             robots_check(job["url"])
-            with open_source(job["url"]) as resp:
+            with open_catalogue(job["url"]) as resp:
                 raw = resp.read(8*1024*1024+1)
             if len(raw)>8*1024*1024:
                 raise Held("repository listing exceeds limit")
             parser = CatalogueLinks(job["url"])
             parser.feed(raw.decode("utf-8","replace"))
             links = sorted(parser.links.values(),key=lambda r: (not bool(re.search(r"master|complete|catalog|katalog",r["url"]+" "+r["title"],re.I)),not bool(re.search(r"[.]pdf($|[?])",r["url"],re.I)),r["url"]))
-            details = {"links":links[:500],"status":"complete","discovered_total":len(links)}
+            # Validate manufacturer PDF candidates before promotion. Keep bounded
+            # listing frontier and give remaining untested candidates a subsequent scan.
+            if job.get("kind") == "manufacturer":
+                links = [r for r in links if urllib.parse.urlsplit(r["url"]).hostname == job["host"]]
+                pdfs = [r for r in links if re.search(r"\\.pdf(?:$|[?])",r["url"],re.I) and re.search(r"parts|spare|ersatz|catalog|katalog|supersession|cross.reference",r["url"]+" "+r["title"],re.I)]
+                listings = [r for r in links if not re.search(r"\\.pdf(?:$|[?])",r["url"],re.I)]
+                verified = [dict(r, validated_pdf=True) for r in pdfs[:40] if validate_catalogue_link(r["url"])]
+                details = {"links":verified+listings[:100],"status":"complete","discovered_total":len(links),"validated_pdfs":len(verified),"pdf_candidates":len(pdfs)}
+            else:
+                details = {"links":links[:500],"status":"complete","discovered_total":len(links)}
         except Exception as exc:
             details = {"links":[],"status":"held","error":str(exc)[:180]}
         count = rpc("repository_finish",{"rid":job["id"],"details":details})
