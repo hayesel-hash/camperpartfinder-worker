@@ -1,0 +1,37 @@
+name: CamperMatch runner capacity and factory dispatcher
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rv-runner-capacity.yml'
+permissions:
+  actions: write
+  contents: read
+concurrency:
+  group: rv-factory-capacity-dispatch
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Dispatch full factory only if a runner was allocated
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # We have reached a real runner. Do not launch another six-job
+          # matrix while an earlier matrix remains active or waiting.
+          running="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rv-master-disk.yml --status in_progress --limit 2 --json databaseId --jq 'length')"
+          queued="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rv-master-disk.yml --status queued --limit 2 --json databaseId --jq 'length')"
+          waiting="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rv-master-disk.yml --status waiting --limit 2 --json databaseId --jq 'length' || echo 0)"
+          echo "Running: $running; queued: $queued; waiting: $waiting"
+          if [[ "$running" == "0" && "$queued" == "0" && "$waiting" == "0" ]]; then
+            gh workflow run rv-master-disk.yml --repo "$GITHUB_REPOSITORY" --ref main
+          else
+            echo "Previous worker matrix still active; no duplicate dispatch"
+          fi
