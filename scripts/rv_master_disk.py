@@ -49,10 +49,23 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(NoRedirect())
 
 
+# Approved publisher-to-CDN tenant mappings; never trust an entire shared CDN.
+CDN_ORIGINS = {
+    "www.knott.de": ("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/",),
+    "www.camperpassie.nl": ("https://d2rqvrnppmk7he.cloudfront.net/catalogs/", "https://www.reimo.com/media/reimo-com/media/pdf/"),
+}
+HOSTS.update(["www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk"])
+def cdn_allowed(url, origin=None):
+    u = urllib.parse.urlsplit(url)
+    decoded = urllib.parse.unquote(u.path)
+    if u.scheme != "https" or u.username or u.password or u.port or ".." in decoded or "\\" in decoded:
+        return False
+    prefixes = CDN_ORIGINS.get(origin, ()) if origin else tuple(p for ps in CDN_ORIGINS.values() for p in ps)
+    return any(url.startswith(p) and re.search(r"\.pdf$",u.path,re.I) for p in prefixes)
 def checked(url):
     u = urllib.parse.urlsplit(url)
-    knott_cdn = u.hostname == "cdn.shopify.com" and (u.path == "/robots.txt" or (u.path.startswith("/s/files/1/0927/2360/9934/files/") and re.search(r"\.pdf$",u.path,re.I) and not any(x in urllib.parse.unquote(u.path) for x in ("..", "\\"))))
-    if u.scheme != "https" or (u.hostname not in HOSTS and not knott_cdn) or u.username or u.password or u.port:
+    cdn_robot = u.path == "/robots.txt" and any(urllib.parse.urlsplit(p).hostname == u.hostname for ps in CDN_ORIGINS.values() for p in ps)
+    if u.scheme != "https" or (u.hostname not in HOSTS and not cdn_allowed(url) and not cdn_robot) or u.username or u.password or u.port:
         raise Held("source host not allowlisted")
     return u
 
@@ -310,8 +323,8 @@ def page_rows(page, p, adapter):
 
 
 # Adaptive extraction: learn column alignment on each page, not a manufacturer regex.
-ADAPT_HEADER = re.compile(r"(?:spare\s+|replacement\s+|service\s+)?(?:part|kit|article|catalog(?:ue)?|item code|order)\s*(?:no\.?|number|#|nr\.?|code)|p\s*/\s*n|artikel(?:nummer|[- ]?nr\.?)|ersatzteil(?:nummer|[- ]?nr\.?)|référence(?: pièce)?|onderdeelnummer",re.I)
-ADAPT_DESC = re.compile(r"(?:part\s+)?description|designation|désignation|bezeichnung|benennung|omschrijving|description of part|part name|nomenclature",re.I)
+ADAPT_HEADER = re.compile(r"(?:spare\s+|replacement\s+|service\s+)?(?:part|kit|article|catalog(?:ue)?|item|order)\s*(?:no\.?|number|#|nr\.?|code)|p\s*/\s*n|artikel(?:nummer|[- ]?nr\.?)|ersatzteil(?:nummer|[- ]?nr\.?)|référence(?: pièce)?|onderdeelnummer",re.I)
+ADAPT_DESC = re.compile(r"(?:part\s+)?description|designation|désignation|bezeichnung|benennung|omschrijving|description of parts?|description of spare parts|part name|nomenclature",re.I)
 ADAPT_OTHER = re.compile(r"qty\.?|quantity|item|ref\.?|pos\.?|price|model|serial|voltage|weight|size|supplier|vendor|manufacturer|brand|hersteller",re.I)
 
 def adaptive_rows(page,p):
@@ -892,7 +905,7 @@ def validate_catalogue_link(url):
 
 
 def discover_repositories():
-    for _ in range(8):
+    for _ in range(24):
         job = rpc("repository_claim")
         if not job:
             return
@@ -908,11 +921,11 @@ def discover_repositories():
             links = sorted(parser.links.values(),key=lambda r: (not bool(re.search(r"master|complete|catalog|katalog",r["url"]+" "+r["title"],re.I)),not bool(re.search(r"[.]pdf($|[?])",r["url"],re.I)),r["url"]))
             # Validate manufacturer PDF candidates before promotion. Keep bounded
             # listing frontier and give remaining untested candidates a subsequent scan.
-            if job.get("kind") == "manufacturer":
-                links = [r for r in links if urllib.parse.urlsplit(r["url"]).hostname == job["host"] or (job["host"] == "www.knott.de" and r["url"].startswith("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/"))]
-                pdfs = [r for r in links if re.search(r"\\.pdf(?:$|[?])",r["url"],re.I) and re.search(r"parts|spare|ersatz|catalog|katalog|supersession|cross.reference",r["url"]+" "+r["title"],re.I)]
-                listings = [r for r in links if not re.search(r"\\.pdf(?:$|[?])",r["url"],re.I)]
-                verified = [dict(r, validated_pdf=True) for r in pdfs[:40] if validate_catalogue_link(r["url"])]
+            if job.get("kind") in ("manufacturer","distributor"):
+                links = [r for r in links if urllib.parse.urlsplit(r["url"]).hostname == job["host"] or cdn_allowed(r["url"],job["host"])]
+                pdfs = [r for r in links if re.search(r"\.pdf(?:$|[?])",r["url"],re.I) and re.search(r"parts|spare|ersatz|catalog|katalog|supersession|cross.reference",r["url"]+" "+r["title"],re.I)]
+                listings = [r for r in links if not re.search(r"\.pdf(?:$|[?])",r["url"],re.I)]
+                verified = [dict(r, validated_pdf=True) for r in pdfs[:120] if validate_catalogue_link(r["url"])]
                 details = {"links":verified+listings[:100],"status":"complete","discovered_total":len(links),"validated_pdfs":len(verified),"pdf_candidates":len(pdfs)}
             else:
                 details = {"links":links[:500],"status":"complete","discovered_total":len(links)}
@@ -923,6 +936,11 @@ def discover_repositories():
 
 
 def self_test():
+    assert cdn_allowed("https://d2rqvrnppmk7he.cloudfront.net/catalogs/2026/Ersatzteile/test.pdf","www.camperpassie.nl")
+    assert not cdn_allowed("https://d2rqvrnppmk7he.cloudfront.net/catalogs/test.pdf","www.knott.de")
+    assert not cdn_allowed("https://cdn.shopify.com/s/files/1/9999/files/test.pdf")
+    assert ADAPT_HEADER.fullmatch("Item number")
+    assert ADAPT_DESC.fullmatch("Description of spare parts")
     assert checked("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/Katalog.pdf").hostname == "cdn.shopify.com"
     try:
         checked("https://cdn.shopify.com/s/files/1/9999/files/Katalog.pdf")
