@@ -54,7 +54,7 @@ CDN_ORIGINS = {
     "www.knott.de": ("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/",),
     "www.camperpassie.nl": ("https://d2rqvrnppmk7he.cloudfront.net/catalogs/", "https://www.reimo.com/media/reimo-com/media/pdf/"),
 }
-HOSTS.update(["www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk"])
+HOSTS.update(["www.thule.com","www.lippert.com","www.truma.com","www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk"])
 def cdn_allowed(url, origin=None):
     u = urllib.parse.urlsplit(url)
     decoded = urllib.parse.unquote(u.path)
@@ -964,9 +964,9 @@ def main(work_mode='any'):
                     job = claim_with_recovery(claim_action,call=compatible_claim,deadline=deadline)
                 if not job:
                     print(json.dumps({"event": "queue_empty_after_replenishment", "action": "needs_acquisition_or_promotion"}), flush=True)
-                    if work_mode != "any" and time.monotonic() < deadline - 30:
-                        time.sleep(20)
-                        continue
+                    # Never burn paid GitHub runner minutes polling an empty queue.
+                    # The next scheduled run handles new work; repository discovery has
+                    # its own dedicated worker.
                     break
             if job.get("upgrade_required"):
                 raise RuntimeError("Worker version not accepted by database; no work claimed")
