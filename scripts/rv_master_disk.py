@@ -672,7 +672,7 @@ def page_layout_signals(page):
     return {"explicit_labels":explicit,"tokens":sum(valid_local_code(w[4]) for w in words),"images":len(page.get_images(full=False))}
 
 
-def synthesise_layouts(page,p,authority="manufacturer"):
+def synthesise_layouts(page,p,authority="manufacturer",family_profile=None):
     """Generate spatial extraction programs from explicit headings, not executable
     code. Search row geometry and validate each hypothesis against held-out rows.
     Distributor local order numbers are never treated as OEM evidence here.
@@ -683,7 +683,11 @@ def synthesise_layouts(page,p,authority="manufacturer"):
     if not words:return [],[]
     commands=[]; results=[]
     # Generate candidate geometry from different baseline alignments observed on this page.
-    for tol in (2,4,7):
+    promoted=(family_profile or {}).get("promoted_strategies",[])
+    here=page.get_text().lower()
+    preferred=[int(x["row_tolerance"]) for x in promoted if x.get("id_header","").lower() in here and x.get("desc_header","").lower() in here and int(x.get("row_tolerance",0)) in (2,4,7)]
+    tolerances=list(dict.fromkeys(preferred+[2,4,7]))
+    for tol in tolerances:
         lines=[]
         for w in sorted(words,key=lambda z:(z[1],z[0])):
             if not lines or abs(w[1]-lines[-1][0][1])>tol:lines.append([w])
@@ -751,7 +755,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     methods["learned"]=learned_rows(page,p,(family_profile or {}).get("profiles",[]))
     methods["pattern_guided"]=pattern_guided_rows(page,p,(family_profile or {}).get("number_patterns",[]))
     methods["spatial_card"]=spatial_identity_rows(page,p,authority)
-    generated,strategies=synthesise_layouts(page,p,authority)
+    generated,strategies=synthesise_layouts(page,p,authority,family_profile)
     methods["synthesised"]=generated
     chosen={}
     for name,rows in methods.items():
@@ -921,8 +925,23 @@ def relationship_rows(page,p):
         r["page_text_sha256"]=hashlib.sha256(text.encode()).hexdigest()
     return rows
 
+def renew_lease(cid, first_page, tok):
+    """Extend active lease and refuse explicitly invalid tokens."""
+    try:
+        accepted=finish_with_recovery("heartbeat",{"cid":cid,"first_page":first_page,"tok":tok})
+    except urllib.error.HTTPError as exc:
+        if exc.code in (502,503,504):
+            return
+        raise
+    if accepted is False:
+        raise RuntimeError("Lease lost; do not commit stale evidence")
+
+
 def main(work_mode='any'):
-    claim_action = {'any':'claim','manifest':'claim_manifest','batch':'claim_batch'}[work_mode]
+    claim_action = "claim_v6"
+    def compatible_claim(action):
+        return rpc(action, {"work_mode":work_mode,"worker_version":"adaptive-yield-v6"})
+
     deadline = time.monotonic() + 20 * 60
     with tempfile.TemporaryDirectory(prefix="rv-master-") as tmp:
         cache = {}
@@ -931,7 +950,7 @@ def main(work_mode='any'):
             if time.monotonic() > deadline:
                 break
             try:
-                job = claim_with_recovery(claim_action,deadline=deadline)
+                job = claim_with_recovery(claim_action,call=compatible_claim,deadline=deadline)
             except ClaimUnavailable:
                 print(json.dumps({"event":"claim_gateway_deferred","action":claim_action,"recovery":"next_run_and_lease_expiry"}),flush=True)
                 raise
@@ -942,19 +961,22 @@ def main(work_mode='any'):
                     replenishment_attempted = True
                     print(json.dumps({"event": "queue_empty", "action": "repository_replenishment"}), flush=True)
                     discover_repositories()
-                    job = claim_with_recovery("claim",deadline=deadline)
+                    job = claim_with_recovery(claim_action,call=compatible_claim,deadline=deadline)
                 if not job:
                     print(json.dumps({"event": "queue_empty_after_replenishment", "action": "needs_acquisition_or_promotion"}), flush=True)
                     if work_mode != "any" and time.monotonic() < deadline - 30:
                         time.sleep(20)
                         continue
                     break
+            if job.get("upgrade_required"):
+                raise RuntimeError("Worker version not accepted by database; no work claimed")
             cid, token, mode = job["id"], job["lease"], job["mode"]
             args = {"cid": cid, "tok": token}
             if mode == "batch":
                 args["first_page"] = job["page_start"]
             outcome, details = "retry", {}
             try:
+                renew_lease(cid,args.get("first_page"),token)
                 url = job["url"]
                 if url not in cache:
                     # Retain only current document; sequential leased batches reuse it.
@@ -963,6 +985,7 @@ def main(work_mode='any'):
                     cache.clear()
                     dest = Path(tmp) / (hashlib.sha256(url.encode()).hexdigest() + ".pdf")
                     fingerprint, size = download(url, dest)
+                    renew_lease(cid,args.get("first_page"),token)
                     cache[url] = (dest, fingerprint, size)
                 dest, fingerprint, size = cache[url]
                 with pymupdf.open(dest) as doc:
@@ -981,6 +1004,7 @@ def main(work_mode='any'):
                         if adapter in ("generic-table-v1","suburban-kit-v2","coleman-stock-v2","adaptive-table-v3","hwh-code-v1"):
                             rows = []
                             for p in range(job["page_start"],job["page_end"]+1):
+                                if (p-job["page_start"])%4==0: renew_lease(cid,args.get("first_page"),token)
                                 found,metrics=adaptive_page(doc[p-1],p,adapter,job.get("family_profile"),job.get("authority","manufacturer"))
                                 if not metrics["words"] and not found:
                                     try:
