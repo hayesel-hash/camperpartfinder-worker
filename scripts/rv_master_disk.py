@@ -155,6 +155,31 @@ def rpc(action, args=None):
 
 
 
+class ClaimUnavailable(Exception):
+    pass
+
+
+def claim_with_recovery(action, call=rpc, sleep=time.sleep, clock=time.monotonic, deadline=None):
+    """An ambiguous claim may have committed. Never immediately repeat it.
+    Let the existing database lease expire; other workers remain safe.
+    Bound consecutive gateway failures and preserve genuine auth/config errors.
+    """
+    for delay in (30, 60, 120, 180):
+        try:
+            return call(action)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504):
+                raise
+            reason = "HTTP " + str(exc.code)
+        except (TimeoutError, urllib.error.URLError, ConnectionError) as exc:
+            reason = type(exc).__name__
+        print(json.dumps({"event":"claim_gateway_transient","action":action,"reason":reason,"backoff_seconds":delay,"ambiguous_lease_recovery":True}),flush=True)
+        if deadline is not None and clock()+delay >= deadline:
+            break
+        sleep(delay)
+    raise ClaimUnavailable("claim gateway unavailable after bounded backoff")
+
+
 def positioned_rows(page, p):
     # Explicit labelled columns only; recover unruled tables and split headers.
     pn = re.compile(r"(?:spare\s+)?part\s*(?:no\.?|number|#|nr\.?)|p\s*/\s*n|part\s*[- ]?nr\.?|artikelnummer|ersatzteilnummer", re.I)
@@ -752,7 +777,11 @@ def main(work_mode='any'):
         for _ in range(400):
             if time.monotonic() > deadline:
                 break
-            job = rpc(claim_action)
+            try:
+                job = claim_with_recovery(claim_action,deadline=deadline)
+            except ClaimUnavailable:
+                print(json.dumps({"event":"claim_gateway_deferred","action":claim_action,"recovery":"next_run_and_lease_expiry"}),flush=True)
+                raise
             if not job:
                 # A drained queue must trigger discovery rather than silently ending.
                 # Bound replenishment to one attempt per run to avoid busy-looping.
@@ -760,7 +789,7 @@ def main(work_mode='any'):
                     replenishment_attempted = True
                     print(json.dumps({"event": "queue_empty", "action": "repository_replenishment"}), flush=True)
                     discover_repositories()
-                    job = rpc("claim")
+                    job = claim_with_recovery("claim",deadline=deadline)
                 if not job:
                     print(json.dumps({"event": "queue_empty_after_replenishment", "action": "needs_acquisition_or_promotion"}), flush=True)
                     if work_mode != "any" and time.monotonic() < deadline - 30:
@@ -906,7 +935,7 @@ def validate_catalogue_link(url):
 
 def discover_repositories():
     for _ in range(24):
-        job = rpc("repository_claim")
+        job = claim_with_recovery("repository_claim")
         if not job:
             return
         details = {"links":[]}
@@ -931,11 +960,37 @@ def discover_repositories():
                 details = {"links":links[:500],"status":"complete","discovered_total":len(links)}
         except Exception as exc:
             details = {"links":[],"status":"held","error":str(exc)[:180]}
-        count = rpc("repository_finish",{"rid":job["id"],"details":details})
+        count = finish_with_recovery("repository_finish",{"rid":job["id"],"details":details})
+        if count is None:
+            print(json.dumps({"event":"repository_completion_uncertain","repository":job["id"]}),flush=True)
+            continue
         print(json.dumps({"repository":job["id"],"links":count,"status":details["status"],"error":details.get("error")}),flush=True)
 
 
 def self_test():
+    calls=[]; pauses=[]
+    def claim_flaky(action):
+        calls.append(action)
+        if len(calls)==1:
+            raise urllib.error.HTTPError("https://example.invalid",502,"gateway",{},None)
+        return {"lease":"test"}
+    assert claim_with_recovery("claim_batch",claim_flaky,pauses.append)=={"lease":"test"}
+    assert calls==["claim_batch","claim_batch"] and pauses==[30]
+    def claim_down(action):
+        raise TimeoutError()
+    try:
+        claim_with_recovery("claim_batch",claim_down,lambda _:None)
+        raise AssertionError("persistent outage silently accepted")
+    except ClaimUnavailable:
+        pass
+    def claim_forbidden(action):
+        raise urllib.error.HTTPError("https://example.invalid",403,"forbidden",{},None)
+    try:
+        claim_with_recovery("claim_batch",claim_forbidden,lambda _:None)
+        raise AssertionError("auth error swallowed")
+    except urllib.error.HTTPError as exc:
+        assert exc.code==403
+
     assert cdn_allowed("https://d2rqvrnppmk7he.cloudfront.net/catalogs/2026/Ersatzteile/test.pdf","www.camperpassie.nl")
     assert not cdn_allowed("https://d2rqvrnppmk7he.cloudfront.net/catalogs/test.pdf","www.knott.de")
     assert not cdn_allowed("https://cdn.shopify.com/s/files/1/9999/files/test.pdf")
