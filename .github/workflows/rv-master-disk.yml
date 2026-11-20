@@ -47,14 +47,17 @@ jobs:
           else:
               raise RuntimeError("Unexpected gateway probe response")
           PY
-      - name: Install OCR engines and pinned Python dependencies
+      - name: Install pinned Python PDF libraries
+        run: |
+          python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
+          python3 -c 'import pymupdf; from PIL import Image; print("PDF libraries available")'
+      - name: Install OCR tools only when extracting
+        if: startsWith(matrix.worker, 'extract-')
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends tesseract-ocr gocr poppler-utils
-          python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
           tesseract --version
           gocr -h >/dev/null 2>&1 || test -x "$(command -v gocr)"
-          python3 -c 'import pymupdf; from PIL import Image; print("OCR Python dependencies available")'
       - name: Test extraction
         run: python3 scripts/rv_master_disk.py --self-test
       - name: Process catalogue queue
