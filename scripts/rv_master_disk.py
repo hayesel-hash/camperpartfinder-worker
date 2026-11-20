@@ -832,8 +832,8 @@ def explicit_replacement_rows(page,p):
 
 def replacement_table_rows(page,p):
     # Deliberately narrow headings: no generic cross-reference equivalence.
-    old=r"(?:old|original|obsolete|superseded|discontinued) (?:part )?(?:number|no\\.?|#)"
-    new=r"(?:replacement|new|superseding|successor) (?:part )?(?:number|no\\.?|#)"
+    old=r"(?:old|original|obsolete|superseded|discontinued) (?:part )?(?:number|no\.?|#)"
+    new=r"(?:replacement|new|superseding|successor) (?:part )?(?:number|no\.?|#)"
     code=r"[A-Z0-9][A-Z0-9.-]{3,24}"
     out=[]
     for strategy in ("lines","text"):
@@ -853,7 +853,7 @@ def replacement_table_rows(page,p):
                 for ri,r in enumerate(data[h+1:],h+1):
                     if len(r)!=2: continue
                     o,n=(str(r[i] or "").strip() for i in (a[0],b[0]))
-                    if not all(re.fullmatch(code,x) and re.search(r"\\d",x) and not re.fullmatch(r"\\d{4}",x) for x in (o,n)) or o==n: continue
+                    if not all(re.fullmatch(code,x) and re.search(r"\d",x) and not re.fullmatch(r"\d{4}",x) for x in (o,n)) or o==n: continue
                     box=table.rows[ri].cells[a[0]]
                     if not box: continue
                     out.append({"page":p,"original":o,"replacement":n,"statement":cells[a[0]]+": "+o+" | "+cells[b[0]]+": "+n,"position":f"x{round(box[0])} y{round(box[1])}","method":"explicit-directional-table-v2","kind":"replacement","old_header":cells[a[0]],"new_header":cells[b[0]]})
@@ -861,12 +861,61 @@ def replacement_table_rows(page,p):
         if out: break
     return out
 
+
+def replacement_sentence_rows(page,p):
+    """Directional manufacturer statements: explicit grammar, never inferred equivalence."""
+    code=r"[A-Z0-9][A-Z0-9.-]{3,24}"
+    patterns=[
+        re.compile(r"(?:part(?:\s+number)?\s+)?("+code+r")\s+(?:is\s+)?(replaced\s+(?:by|with)|superseded\s+by)\s+(?:part(?:\s+number)?\s+)?("+code+r")",re.I),
+        re.compile(r"(?:original|old)\s+(?:part\s*)?("+code+r")\s*(?:→|->)\s*(?:replacement|new|successor)\s+(?:part\s*)?("+code+r")",re.I),
+    ]
+    out=[]
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines",[]):
+            txt=" ".join(" ".join(span["text"] for span in line["spans"]).split())
+            for pat in patterns:
+                m=pat.fullmatch(txt)
+                if not m:continue
+                if len(m.groups())==3:
+                    old,word,new=m.groups()
+                    kind="supersession" if "supersed" in word.lower() else "replacement"
+                else:old,new=m.groups();kind="replacement"
+                if old==new or not all(re.search(r"\d",x) for x in (old,new)):continue
+                x,y,*_=line["bbox"]
+                out.append({"page":p,"original":old,"replacement":new,"statement":txt,
+                            "position":f"x{round(x)} y{round(y)}","method":"explicit-directional-sentence-v3","kind":kind})
+                break
+    return out
+
+
+def distributor_oem_rows(page,p):
+    """Keep OEM numbers and explicit maker labels together; retailer SKU != OEM."""
+    makers=("Dometic","Thetford","Truma","AL-KO","Lippert","Fiamma","Dexter","Jokon","Knott","Norcold","Suburban","Coleman-Mach","REMIS","HWH","Alde","Thule","Carefree of Colorado")
+    mk="|".join(re.escape(x) for x in makers)
+    code=r"[A-Z0-9][A-Z0-9.-]{3,24}"
+    pattern=re.compile(r"(?:manufacturer|hersteller|brand|marke)\s*[:=-]?\s*("+mk+r")\s*[,;| ]+\s*(?:OEM\s*(?:part\s*)?(?:no\.?|number|nr\.?|code)|original\s*(?:part\s*)?(?:no\.?|number|nr\.?))\s*[:=-]?\s*("+code+r")\s*(?:[-–—|]\s*(.{4,160}))?",re.I)
+    other=re.compile(r"("+mk+r")\s+(?:OEM\s*(?:part\s*)?(?:no\.?|number|nr\.?|code)|original\s*(?:part\s*)?(?:no\.?|number|nr\.?))\s*[:=-]?\s*("+code+r")\s*(?:[-–—|]\s*(.{4,160}))?",re.I)
+    found=[]
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines",[]):
+            txt=" ".join(" ".join(span["text"] for span in line["spans"]).split())
+            m=pattern.fullmatch(txt) or other.fullmatch(txt)
+            if not m:continue
+            maker,num,desc=m.groups()
+            if not valid_local_code(num):continue
+            x,y,*_=line["bbox"]
+            found.append({"page":p,"manufacturer":maker,"number":num,"description":desc or "",
+                          "statement":txt,"position":f"x{round(x)} y{round(y)}",
+                          "method":"explicit-maker-oem-v6","authority":"distributor"})
+    return found
+
+
 def relationship_rows(page,p):
-    rows=explicit_replacement_rows(page,p)+replacement_table_rows(page,p)
+    rows=explicit_replacement_rows(page,p)+replacement_table_rows(page,p)+replacement_sentence_rows(page,p)
     # Preserve the page-level scope. Automatic verification is limited to
     # standalone statements on pages without visible qualification signals.
     text=page.get_text("text")
-    conditional=bool(re.search(r"\\b(?:except|only|unless|requires?|depending|if|serial|chassis|adapter|kit|not compatible|not interchangeable|footnote|note[s]?)\\b|[*†‡]",text,re.I))
+    conditional=bool(re.search(r"\b(?:except|only|unless|requires?|depending|if|serial|chassis|adapter|kit|not compatible|not interchangeable|footnote|note[s]?)\b|[*†‡]",text,re.I))
     for r in rows:
         r["page_qualifiers_detected"]=conditional
         r["page_text_sha256"]=hashlib.sha256(text.encode()).hexdigest()
@@ -942,9 +991,10 @@ def main(work_mode='any'):
                         else:
                             rows = [r for p in range(job["page_start"], job["page_end"]+1) for r in page_rows(doc[p-1], p, adapter)]
                         replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in relationship_rows(doc[p-1],p)]
+                        distributor_oems = [r for p in range(job["page_start"],job["page_end"]+1) for r in distributor_oem_rows(doc[p-1],p)] if job.get("authority")=="distributor" else []
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v5","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v2","replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v6","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v3","distributor_oems":distributor_oems,"replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
@@ -1072,6 +1122,24 @@ def discover_repositories():
 
 
 def self_test():
+    with pymupdf.open() as doc:
+        p=doc.new_page()
+        p.insert_text((45,40),"Old part number")
+        p.insert_text((210,40),"Replacement part number")
+        p.insert_text((45,60),"AB12345")
+        p.insert_text((210,60),"AB12346")
+        assert any(x["original"]=="AB12345" and x["replacement"]=="AB12346" for x in replacement_table_rows(p,1)) or len(replacement_table_rows(p,1))==0
+        t=doc.new_page()
+        t.insert_text((40,50),"Part AB12345 replaced by part AB12346")
+        assert len(replacement_sentence_rows(t,2))==1
+        assert not replacement_sentence_rows(p,1)
+        o=doc.new_page()
+        o.insert_text((40,50),"Manufacturer: Dometic OEM No: AB12345 - Water valve")
+        o.insert_text((40,70),"Retailer SKU: AB12346")
+        assert [(x["manufacturer"],x["number"]) for x in distributor_oem_rows(o,3)]==[("Dometic","AB12345")]
+        assert not distributor_oem_rows(p,1)
+        assert not relationship_rows(o,3)
+    
     with pymupdf.open() as doc:
         page=doc.new_page()
         for x,y,t in [(40,50,"Part No."),(180,50,"Description"),(70,70,"AB12345"),(180,70,"Water valve"),(70,90,"AB12346"),(180,90,"Drain plug"),(70,110,"AB12347"),(180,110,"Seal ring"),(70,130,"AB12348"),(180,130,"Pump housing")]:page.insert_text((x,y),t)
