@@ -143,6 +143,7 @@ def self_test():
         assert not any(x["number"]=="800500" for x in rows)
         assert not any(x["description"]=="Maße 800x500 2025 498 Euro" for x in rows if "description" in x)
         assert not extract_page(doc.new_page(),2)
+        p=doc[0]  # PyMuPDF invalidates prior page handles when pages are inserted.
         # Repeated SKUs in the same position should not be duplicated.
         r=extract_page(p,1,[{"page":1,"number":"318019","position":"x80 y89","method":"reimo-catalogue-sku-v1"}])
         assert sum(x["number"]=="318019" for x in r)>=1
