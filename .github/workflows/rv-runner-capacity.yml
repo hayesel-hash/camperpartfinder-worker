@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
+      - uses: actions/checkout@v4
       - name: Dispatch full factory only if a runner was allocated
         env:
           GH_TOKEN: ${{ github.token }}
@@ -33,6 +34,19 @@ jobs:
           waiting="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rv-master-disk.yml --status waiting --limit 2 --json databaseId --jq 'length' || echo 0)"
           echo "Running: $running; queued: $queued; waiting: $waiting"
           if [[ "$running" == "0" && "$queued" == "0" && "$waiting" == "0" ]]; then
+            # Do not automatically launch a fresh matrix after an unverified
+            # failure. The classifier requires runner and executed-step evidence.
+            latest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rv-master-disk.yml --limit 1 --json databaseId,conclusion,status)"
+            latest_id="$(jq -r '.[0].databaseId // empty' <<< "$latest")"
+            latest_conclusion="$(jq -r '.[0].conclusion // empty' <<< "$latest")"
+            if [[ -n "$latest_id" && "$latest_conclusion" != "success" ]]; then
+              echo "Checking execution evidence for matrix $latest_id"
+              jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$latest_id/jobs?per_page=100" --jq '.jobs' )"
+              JOBS_JSON="$jobs" python -c 'import json,os,sys; from runner_circuit_breaker import classify_jobs; c=classify_jobs(json.loads(os.environ["JOBS_JSON"])); print("Previous matrix:",c); sys.exit(0 if c=="runner_executed" else 1)' || {
+                echo "BLOCKED: previous matrix lacks verified execution. Check GitHub runner capacity, billing/spending, or Actions policy. No automatic dispatch."
+                exit 0
+              }
+            fi
             gh workflow run rv-master-disk.yml --repo "$GITHUB_REPOSITORY" --ref main
           else
             echo "Previous worker matrix still active; no duplicate dispatch"
