@@ -14,6 +14,12 @@ class BreakerTests(unittest.TestCase):
         self.assertTrue(retry_eligible([j]))
     def test_active_blocks_retry(self):
         self.assertFalse(retry_eligible([dict(status='in_progress', runner_id=42, steps=[{}])]))
+    def test_mixed_failed_jobs_fail_closed(self):
+        executed = dict(status='completed', conclusion='failure', runner_id=42, steps=[{'name':'checkout'}])
+        unallocated = dict(status='completed', conclusion='failure', runner_id=0, steps=[], started_at='2026-11-20T23:00:00Z', completed_at='2026-11-20T23:00:03Z')
+        self.assertFalse(retry_eligible([executed, unallocated]))
+    def test_successful_run_not_retryable(self):
+        self.assertFalse(retry_eligible([dict(status='completed', conclusion='success', runner_id=42, steps=[{}])]))
     def test_slow_failure_not_pre_provisioning(self):
         j = dict(status='completed', conclusion='failure', runner_id=0, steps=[],
                  started_at='2026-11-20T23:00:00Z', completed_at='2026-11-20T23:02:00Z')

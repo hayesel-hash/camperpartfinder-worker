@@ -11,14 +11,19 @@ def classify_jobs(jobs):
         return 'unknown_no_jobs'
     if any(j.get('status') != 'completed' for j in jobs):
         return 'active'
-    if any(j.get('runner_id', 0) not in (0, None) and j.get('steps') for j in jobs):
-        return 'runner_executed'
+    if all(j.get('conclusion') == 'success' for j in jobs):
+        return 'successful_run'
     if any('runner_id' not in j or j.get('steps') is None for j in jobs):
         return 'unknown_incomplete_metadata'
     if all(j.get('runner_id') == 0 and j.get('steps') == [] and
            j.get('conclusion') == 'failure' and
            _within_seconds(j) for j in jobs):
         return 'pre_provisioning_failure'
+    if any(j.get('conclusion') == 'failure' and
+           (j.get('runner_id') == 0 or not j.get('steps')) for j in jobs):
+        return 'unknown_no_execution_evidence'
+    if any(j.get('runner_id', 0) not in (0, None) and j.get('steps') for j in jobs):
+        return 'runner_executed'
     return 'unknown_no_execution_evidence'
 
 
