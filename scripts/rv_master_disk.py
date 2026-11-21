@@ -738,6 +738,68 @@ def synthesise_layouts(page,p,authority="manufacturer",family_profile=None):
     return list({(r["number"],r["position"]):r for r in results}.values()),sorted(commands,key=lambda c:(-c["yield"],c["radius"],c["id"]))[:12]
 
 
+
+REIMO_ITEM_CODE = re.compile(r"(?:[0-9]{5,7}|[0-9]{5,6}[A-Z])$")
+REIMO_PRICE = re.compile(r"(?:[0-9]{1,4}(?:[.,][0-9]{1,2})?[-–—]?|[0-9]{1,3}[.,][-–—])$")
+REIMO_ITEM_LABEL = re.compile(r"(?:art(?:ikel)?[. -]*(?:nr|nummer)[.]?|bestell(?:nr|nummer)|item[. ]*(?:no|number)[.]?|order[. ]*(?:no|number)[.]?)", re.I)
+
+def reimo_2025_rows(page,p):
+    """Page-anchored Reimo catalogue product SKUs, never manufacturer OEM claims.
+
+    Handle adjacent article/price pairs and multi-item-number tables.
+    Require a currency-labelled row, price paired with a catalogue number,
+    or a locally explicit item-number header; do not mine arbitrary digits.
+    Description remains optional rather than inventing one.
+    """
+    words=page.get_text("words")
+    lines=[]
+    for word in sorted(words,key=lambda w:(w[1],w[0])):
+        if not lines or abs(word[1]-lines[-1][0][1])>3.2:lines.append([word])
+        else:lines[-1].append(word)
+    lines=[sorted(line,key=lambda w:w[0]) for line in lines]
+    out=[]; recent_headers=[]
+    for li,line in enumerate(lines):
+        txt=" ".join(w[4] for w in line)
+        labelled=bool(REIMO_ITEM_LABEL.search(txt))
+        if labelled:recent_headers.append((li,line[0][1],[w[0] for w in line if REIMO_ITEM_LABEL.fullmatch(w[4])]))
+        recent_headers=recent_headers[-5:]
+        for k,w in enumerate(line):
+            num=w[4].strip(".,:;")
+            if not REIMO_ITEM_CODE.fullmatch(num):continue
+            # Article identity may be 5-7 digits; reject year, unit and prices.
+            if re.search(r"(?:mm|cm|kg|eur|€|£|%)$",w[4],re.I):continue
+            neighbors=line[k+1:k+5]
+            nearby_price=any(
+                v[0]-w[2]<135 and v[0]>=w[2]-3
+                and (
+                  (REIMO_PRICE.fullmatch(v[4].replace("€","")) and ("," in v[4] or "." in v[4] or "–" in v[4] or "-" in v[4]))
+                  or (v[4].startswith("€") and REIMO_PRICE.fullmatch(v[4][1:]))
+                )
+                for v in neighbors
+            )
+            # Label headers are common in multi-column Reimo variant tables.
+            header_near=any(
+                li-hli<=24 and li>hli and 0<w[1]-hy<420
+                and (not xs or min(abs(w[0]-hx) for hx in xs)<55)
+                for hli,hy,xs in recent_headers
+            )
+            explicit_inline=bool(
+                re.search(r"(?:art[. -]*nr[.]?|artikelnummer|bestellnummer|item[. ]*no[.]?)\s*[:#]?\s*"+re.escape(num)+r"\b",txt,re.I)
+            )
+            if not (nearby_price or header_near or explicit_inline):continue
+            # For price adjacency, prevent accepting a dimension or serial column
+            # masquerading as an article number by requiring contextual product
+            # vocabulary elsewhere within the same page.
+            surrounding=" ".join(" ".join(v[4] for v in row) for row in lines[max(0,li-5):li+2])
+            if not re.search(r"[A-Za-zÄÖÜäöüß]{4}",surrounding):continue
+            # Never treat a price as a SKU, even when the page contains item headings.
+            if k and line[k-1][4] in ("€","EUR","Euro","Preis","Price"):continue
+            position=f"x{round(w[0])} y{round(w[1])}"
+            out.append({"page":p,"number":num,"position":position,
+                        "method":"reimo-catalogue-sku-v1"})
+    return list({(r["number"],r["position"]):r for r in out}.values())
+
+
 def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     # Union independent layout strategies; prefer existing exact table cells
     # for matching identities. No second parser is required for publication.
@@ -752,6 +814,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     if adapter=="suburban-kit-v2": methods["kit"]=suburban_kit_rows(page,p)
     if adapter=="coleman-stock-v2": methods["stock"]=coleman_stock_rows(page,p)
     if adapter=="hwh-code-v1": methods["hwh_exact"]=hwh_rows(page,p)
+    if adapter=="reimo-catalogue-v1": methods["reimo_sku"]=reimo_2025_rows(page,p)
     methods["learned"]=learned_rows(page,p,(family_profile or {}).get("profiles",[]))
     methods["pattern_guided"]=pattern_guided_rows(page,p,(family_profile or {}).get("number_patterns",[]))
     methods["spatial_card"]=spatial_identity_rows(page,p,authority)
@@ -1194,6 +1257,40 @@ def discover_repositories():
 
 
 def self_test():
+    with pymupdf.open() as doc:
+        pg=doc.new_page()
+        pg.insert_text((45,35),"REIMO CAMPING Fenstersystem Carbest")
+        pg.insert_text((45,60),"Außenmaß / Abmessung")
+        pg.insert_text((55,90),"500x450")
+        pg.insert_text((170,90),"318019")
+        pg.insert_text((245,90),"302,–")
+        pg.insert_text((55,110),"700x300")
+        pg.insert_text((170,110),"318031")
+        pg.insert_text((245,110),"319,–")
+        pg.insert_text((55,130),"900x450")
+        pg.insert_text((170,130),"318034")
+        pg.insert_text((245,130),"392,–")
+        found=reimo_2025_rows(pg,1)
+        assert {r["number"] for r in found}=={"318019","318031","318034"},found
+        assert all(r["method"]=="reimo-catalogue-sku-v1" for r in found)
+        assert not reimo_2025_rows(doc.new_page(),2)
+    with pymupdf.open() as doc:
+        pg=doc.new_page()
+        pg.insert_text((30,40),"Fenster 900x450 12V 2025 498€")
+        pg.insert_text((30,70),"Maße 800x500 1200x600 20 kg")
+        assert not reimo_2025_rows(pg,1)
+    with pymupdf.open() as doc:
+        pg=doc.new_page()
+        pg.insert_text((30,35),"REIMO Wohnmobil Fenster")
+        pg.insert_text((150,50),"Item no.")
+        pg.insert_text((300,50),"Price")
+        pg.insert_text((150,72),"318901")
+        pg.insert_text((300,72),"85,–")
+        pg.insert_text((150,95),"318902")
+        pg.insert_text((300,95),"103,–")
+        found=reimo_2025_rows(pg,3)
+        assert {r["number"] for r in found}=={"318901","318902"},found
+
     with pymupdf.open() as doc:
         p=doc.new_page()
         p.insert_text((40,50),"Part No.")
