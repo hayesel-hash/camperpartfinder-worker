@@ -96,6 +96,32 @@ def extract_page(page,p,identity_rows=(),authority="distributor"):
         c=_candidate(page,p,"fits_model",sku,models,t,box,
             method="explicit-fitment-de-en-v1")
         if c:out.append(c)
+    # Many visual catalogue cards put a product code and "passend für"
+    # text in different PDF blocks. The identity extractor may have already
+    # associated that text with an article. Preserve this as an UNREVIEWED
+    # observation rather than discarding it or calling it verified fitment.
+    # Demand a named product ecosystem/model; generic "fits all" is not useful.
+    model_marker = re.compile(
+        r"\b(?:AL-KO|Truma|Thetford|Dometic|Trelino|Froli|Gardena|"
+        r"Inprojal|Berker|UFS(?:connect)?|CAP\s*\d|A\d{6,}|"
+        r"Fiamma|Fiat|Ducato|VW|Volkswagen|Renault|Ford|Mercedes|"
+        r"Stabilform|Alde|Carbest|Thule|Jokon|REMIS)\b", re.I)
+    for row in identity_rows:
+        sku=str(row.get("number",""))
+        desc=str(row.get("description") or "").strip()
+        m=SUITABLE.search(desc)
+        if not SKU.fullmatch(sku) or not m or not model_marker.search(m[1]):continue
+        if QUALIFIED.search(desc):continue
+        scope=m[1].strip(" .;,:")
+        if not 4<=len(scope)<=130:continue
+        source_pos=row.get("position","")
+        position=re.fullmatch(r"x(\d+) y(\d+)",source_pos)
+        if not position:continue
+        box=(int(position[1]),int(position[2]),int(position[1])+20,int(position[2])+10)
+        c=_candidate(page,p,"fits_model",sku,scope,desc,box,
+            certainty="sku_description_alignment_unreviewed",
+            method="identity-associated-fitment-v2")
+        if c:out.append(c)
     seen=set();unique=[]
     for r in out:
         k=(r["page"],r["kind"],r["subject"],r["object"],r["position"])
@@ -131,6 +157,13 @@ def self_test():
     doc.close()
     doc,p=page(["Das ist nur mit Adapter passend für Truma S3004"])
     assert not extract_page(p,1,[{"number":"318019"}])
+    doc.close()
+    doc,p=page(["Adapter fuer AL-KO"])
+    x=extract_page(p,1,[{"number":"91359","position":"x90 y50",
+       "description":"Passend für AL-KO Steckstützen Stabilform und Premium."}])
+    assert len(x)==1 and x[0]["kind"]=="fits_model" and x[0]["certainty"]=="sku_description_alignment_unreviewed",x
+    assert not extract_page(p,1,[{"number":"930681","position":"x90 y50",
+       "description":"Geeignet für Boote, Luftzelte und Möbel."}])
     doc.close()
     return True
 
