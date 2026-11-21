@@ -9,6 +9,8 @@ on:
       - '.github/workflows/rv-runner-capacity.yml'
       - '.github/workflows/rv-master-disk.yml'
       - 'scripts/rv_master_disk.py'
+      - 'scripts/catalogue_relationship_extractor.py'
+      - 'scripts/reimo_remote_extractor.py'
 permissions:
   actions: write
   contents: read
