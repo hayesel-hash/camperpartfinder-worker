@@ -64,9 +64,12 @@ def extract_page(page,p,identity_rows=(),authority="distributor"):
         # extract, but cannot make distributor numbers into manufacturer OEMs.
         reimo=REIMO.search(t);oem=OEM.search(t)
         if authority=="distributor" and reimo and oem and reimo[1]!=oem[1]:
-            maker=MAKER.search(t)
+            # Search the OEM-labelled suffix first. 'Reimo Art.Nr.' is
+            # distributor provenance, not the OEM maker.
+            makers=[m[0] for m in MAKER.finditer(t) if m[0].lower()!="reimo"]
+            maker=makers[0] if len({m.lower() for m in makers})==1 else ""
             c=_candidate(page,p,"distributor_manufacturer_crossref",reimo[1],oem[1],t,box,
-                maker=maker[0] if maker else "",method="explicit-sku-oem-label-v1")
+                maker=maker,method="explicit-sku-oem-label-v1")
             if c:out.append(c)
         suitable=SUITABLE.search(t)
         if not suitable:continue
