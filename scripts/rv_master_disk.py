@@ -1114,7 +1114,7 @@ def main(work_mode='any'):
                         if adapter == "layout-preview-v1":
                             adapter = "adaptive-table-v3"
                         sample = []
-                        if adapter in ("generic-table-v1","suburban-kit-v2","coleman-stock-v2","adaptive-table-v3","hwh-code-v1","reimo-catalogue-v1"):
+                        if adapter in ("generic-table-v1","suburban-kit-v2","coleman-stock-v2","adaptive-table-v3","hwh-code-v1","reimo-catalogue-v1","reimo-catalogue-v2"):
                             rows = []
                             for p in range(job["page_start"],job["page_end"]+1):
                                 if (p-job["page_start"])%4==0: renew_lease(cid,args.get("first_page"),token)
