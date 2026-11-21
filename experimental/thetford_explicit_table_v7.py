@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 
 PART = re.compile(r"^[0-9]{6}(?:[0-9]{2})?(?:[A-Z]{1,3})?$")
-BAD = re.compile(r"(?i)(?:price|£|€|\\$|sku|article\\s*no|serial|model|refer to|colour|color|ean|barcode)")
+BAD = re.compile(r"(?i)(?:price|£|€|\$|sku|article\s*no|serial|model|refer to|colour|color|ean|barcode)")
 
 @dataclass(frozen=True)
 class Candidate:
