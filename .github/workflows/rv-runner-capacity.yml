@@ -42,12 +42,21 @@ jobs:
             latest_id="$(jq -r '.[0].databaseId // empty' <<< "$latest")"
             latest_conclusion="$(jq -r '.[0].conclusion // empty' <<< "$latest")"
             if [[ -n "$latest_id" && "$latest_conclusion" != "success" ]]; then
-              echo "Checking execution evidence for matrix $latest_id"
-              jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$latest_id/jobs?per_page=100" --jq '.jobs' )"
-              JOBS_JSON="$jobs" python -c 'import json,os,sys; from runner_circuit_breaker import classify_jobs; c=classify_jobs(json.loads(os.environ["JOBS_JSON"])); print("Previous matrix:",c); sys.exit(0 if c=="runner_executed" else 1)' || {
-                echo "BLOCKED: previous matrix lacks verified execution. Check GitHub runner capacity, billing/spending, or Actions policy. No automatic dispatch."
+              echo "Prior matrix $latest_id concluded $latest_conclusion; no unbounded redispatch"
+              # Fetch job evidence for a precise classification, but never treat
+              # runner execution alone as authorization for another workflow.
+              jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$latest_id/jobs?per_page=100" --jq '.jobs[]' | jq -s '.')" || {
+                echo "BLOCKED: unable to inspect prior job evidence. No dispatch."
                 exit 0
               }
+              classification="$(JOBS_JSON="$jobs" python -c 'import json,os; from runner_circuit_breaker import classify_jobs; print(classify_jobs(json.loads(os.environ["JOBS_JSON"])))')" || {
+                echo "BLOCKED: job classification failed. No dispatch."
+                exit 0
+              }
+              echo "BLOCKED: previous matrix $latest_id: $classification"
+              echo "Any retry requires atomic outage reservation, retry_count < 2, 30-minute cooldown, and verified runner execution."
+              echo "For pre_provisioning_failure check GitHub runner capacity, billing/spending and Actions policy; cause not established."
+              exit 0
             fi
             gh workflow run rv-master-disk.yml --repo "$GITHUB_REPOSITORY" --ref main
           else
