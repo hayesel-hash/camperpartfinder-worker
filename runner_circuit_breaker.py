@@ -6,6 +6,23 @@ No retries are permitted until jobs demonstrate actual runner execution.
 from datetime import datetime
 
 
+def _executed_step(job):
+    """Require a completed, timestamped step rather than a merely allocated runner."""
+    for step in job.get('steps') or []:
+        if not isinstance(step, dict):
+            continue
+        if step.get('status') != 'completed' or not step.get('started_at') or not step.get('completed_at'):
+            continue
+        try:
+            start = datetime.fromisoformat(step['started_at'].replace('Z', '+00:00'))
+            end = datetime.fromisoformat(step['completed_at'].replace('Z', '+00:00'))
+            if end >= start:
+                return True
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return False
+
+
 def classify_jobs(jobs):
     if not jobs:
         return 'unknown_no_jobs'
@@ -20,9 +37,9 @@ def classify_jobs(jobs):
            _within_seconds(j) for j in jobs):
         return 'pre_provisioning_failure'
     if any(j.get('conclusion') == 'failure' and
-           (j.get('runner_id') == 0 or not j.get('steps')) for j in jobs):
+           (not isinstance(j.get('runner_id'), int) or j['runner_id'] <= 0 or not _executed_step(j)) for j in jobs):
         return 'unknown_no_execution_evidence'
-    if any(j.get('runner_id', 0) not in (0, None) and j.get('steps') for j in jobs):
+    if any(isinstance(j.get('runner_id'), int) and j['runner_id'] > 0 and _executed_step(j) for j in jobs):
         return 'runner_executed'
     return 'unknown_no_execution_evidence'
 
