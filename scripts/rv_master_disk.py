@@ -1114,24 +1114,35 @@ def main(work_mode='any'):
                         if adapter == "layout-preview-v1":
                             adapter = "adaptive-table-v3"
                         sample = []
-                        if adapter in ("generic-table-v1","suburban-kit-v2","coleman-stock-v2","adaptive-table-v3","hwh-code-v1","reimo-catalogue-v1","reimo-catalogue-v2"):
-                            rows = []
-                            for p in range(job["page_start"],job["page_end"]+1):
-                                if (p-job["page_start"])%4==0: renew_lease(cid,args.get("first_page"),token)
-                                found,metrics=adaptive_page(doc[p-1],p,adapter,job.get("family_profile"),job.get("authority","manufacturer"))
+                        rows = []
+                        replacements = []
+                        distributor_oems = []
+                        catalogue_relations = []
+                        from catalogue_relationship_extractor import extract_page as extract_catalogue_relations
+                        for p in range(job["page_start"],job["page_end"]+1):
+                            if (p-job["page_start"])%4==0: renew_lease(cid,args.get("first_page"),token)
+                            page = doc[p-1]
+                            if adapter in ("generic-table-v1","suburban-kit-v2","coleman-stock-v2","adaptive-table-v3","hwh-code-v1","reimo-catalogue-v1","reimo-catalogue-v2"):
+                                found,metrics=adaptive_page(page,p,adapter,job.get("family_profile"),job.get("authority","manufacturer"))
                                 if not metrics["words"] and not found:
                                     try:
-                                        metrics["ocr_preview"]=ocr_preview(doc[p-1],p)
+                                        metrics["ocr_preview"]=ocr_preview(page,p)
                                     except Exception as exc:
                                         metrics["ocr_preview"]={"status":"ocr_error","error":type(exc).__name__}
-                                rows.extend(found); sample.append(metrics)
-                        else:
-                            rows = [r for p in range(job["page_start"], job["page_end"]+1) for r in page_rows(doc[p-1], p, adapter)]
-                        replacements = [r for p in range(job["page_start"],job["page_end"]+1) for r in relationship_rows(doc[p-1],p)]
-                        distributor_oems = [r for p in range(job["page_start"],job["page_end"]+1) for r in distributor_oem_rows(doc[p-1],p)] if job.get("authority")=="distributor" else []
+                                sample.append(metrics)
+                            else:
+                                found=page_rows(page,p,adapter)
+                            rows.extend(found)
+                            replacements.extend(relationship_rows(page,p))
+                            if job.get("authority")=="distributor":
+                                distributor_oems.extend(distributor_oem_rows(page,p))
+                            catalogue_relations.extend(extract_catalogue_relations(
+                                page,p,found,job.get("authority","manufacturer")))
+                        if len(catalogue_relations)>1000:
+                            raise Held("batch relationship claim count exceeds limit")
                         if len(rows) > 2000:
                             raise Held("batch exceeds row limit")
-                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v6","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v7","distributor_oems":distributor_oems,"replacements":replacements, "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
+                        outcome, details = "complete", {"hash": fingerprint, "rows": rows, "extracted": len(rows), "engine": "pymupdf", "layout_preview": sample, "extraction_version":"adaptive-yield-v6","pattern_version":"number-shape-v1","replacement_version":"explicit-directional-v7","distributor_oems":distributor_oems,"replacements":replacements,"catalogue_relations":catalogue_relations,"catalogue_relationship_extractor_version":"explicit-multilingual-v1", "attribution": catalogue_attribution(doc) if job.get("authority") == "distributor" else {}}
             except Held as exc:
                 outcome, details = "held", {"error": str(exc)}
             except urllib.error.HTTPError as exc:
@@ -1259,6 +1270,8 @@ def discover_repositories():
 
 
 def self_test():
+    from catalogue_relationship_extractor import self_test as relationship_self_test
+    assert relationship_self_test()
     with pymupdf.open() as doc:
         pg=doc.new_page()
         pg.insert_text((45,35),"REIMO CAMPING Fenstersystem Carbest")
