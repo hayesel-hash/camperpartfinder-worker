@@ -740,7 +740,7 @@ def synthesise_layouts(page,p,authority="manufacturer",family_profile=None):
 
 
 REIMO_ITEM_CODE = re.compile(r"(?:[0-9]{5,7}|[0-9]{5,6}[A-Z])$")
-REIMO_PRICE = re.compile(r"(?:[0-9]{1,4}(?:[.,][0-9]{1,2})?[-–—]?|[0-9]{1,3}[.,][-–—])$")
+REIMO_PRICE = re.compile(r"(?:[0-9]{1,4}(?:[.,][0-9]{1,2})?[-–—·]?|[0-9]{1,3}[.,][-–—·])$")
 REIMO_ITEM_LABEL = re.compile(r"(?:art(?:ikel)?[. -]*(?:nr|nummer)[.]?|bestell(?:nr|nummer)|item[. ]*(?:no|number)[.]?|order[. ]*(?:no|number)[.]?)", re.I)
 
 def reimo_2025_rows(page,p):
@@ -772,7 +772,7 @@ def reimo_2025_rows(page,p):
             nearby_price=any(
                 v[0]-w[2]<135 and v[0]>=w[2]-3
                 and (
-                  (REIMO_PRICE.fullmatch(v[4].replace("€","")) and ("," in v[4] or "." in v[4] or "–" in v[4] or "-" in v[4]))
+                  (REIMO_PRICE.fullmatch(v[4].replace("€","")) and ("," in v[4] or "." in v[4] or "–" in v[4] or "-" in v[4] or "·" in v[4]))
                   or (v[4].startswith("€") and REIMO_PRICE.fullmatch(v[4][1:]))
                 )
                 for v in neighbors
@@ -1263,13 +1263,13 @@ def self_test():
         pg.insert_text((45,60),"Außenmaß / Abmessung")
         pg.insert_text((55,90),"500x450")
         pg.insert_text((170,90),"318019")
-        pg.insert_text((245,90),"302,–")
+        pg.insert_text((245,90),"302,-")
         pg.insert_text((55,110),"700x300")
         pg.insert_text((170,110),"318031")
-        pg.insert_text((245,110),"319,–")
+        pg.insert_text((245,110),"319,-")
         pg.insert_text((55,130),"900x450")
         pg.insert_text((170,130),"318034")
-        pg.insert_text((245,130),"392,–")
+        pg.insert_text((245,130),"392,-")
         found=reimo_2025_rows(pg,1)
         assert {r["number"] for r in found}=={"318019","318031","318034"},found
         assert all(r["method"]=="reimo-catalogue-sku-v1" for r in found)
@@ -1285,9 +1285,9 @@ def self_test():
         pg.insert_text((150,50),"Item no.")
         pg.insert_text((300,50),"Price")
         pg.insert_text((150,72),"318901")
-        pg.insert_text((300,72),"85,–")
+        pg.insert_text((300,72),"85,-")
         pg.insert_text((150,95),"318902")
-        pg.insert_text((300,95),"103,–")
+        pg.insert_text((300,95),"103,-")
         found=reimo_2025_rows(pg,3)
         assert {r["number"] for r in found}=={"318901","318902"},found
 
