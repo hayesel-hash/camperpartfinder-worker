@@ -53,6 +53,8 @@ jobs:
           gocr -h >/dev/null 2>&1 || test -x "$(command -v gocr)"
       - name: Test extraction
         run: python3 scripts/rv_master_disk.py --self-test
+      - name: Regression-test runner allocation circuit breaker
+        run: python3 -m unittest -q test_runner_circuit_breaker
       - name: Process catalogue queue
         env:
           RV_WORKER: ${{ matrix.worker }}
