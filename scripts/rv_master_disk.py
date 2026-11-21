@@ -814,7 +814,9 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     if adapter=="suburban-kit-v2": methods["kit"]=suburban_kit_rows(page,p)
     if adapter=="coleman-stock-v2": methods["stock"]=coleman_stock_rows(page,p)
     if adapter=="hwh-code-v1": methods["hwh_exact"]=hwh_rows(page,p)
-    if adapter=="reimo-catalogue-v1": methods["reimo_sku"]=reimo_2025_rows(page,p)
+    if adapter in ("reimo-catalogue-v1","reimo-catalogue-v2"):
+        from reimo_remote_extractor import extract_page as extract_reimo_page
+        methods["reimo_sku"]=extract_reimo_page(page,p,reimo_2025_rows(page,p))
     methods["learned"]=learned_rows(page,p,(family_profile or {}).get("profiles",[]))
     methods["pattern_guided"]=pattern_guided_rows(page,p,(family_profile or {}).get("number_patterns",[]))
     methods["spatial_card"]=spatial_identity_rows(page,p,authority)
@@ -1272,6 +1274,11 @@ def self_test():
         pg.insert_text((245,130),"392,-")
         found=reimo_2025_rows(pg,1)
         assert {r["number"] for r in found}=={"318019","318031","318034"},found
+        from reimo_remote_extractor import extract_page as extract_reimo_page, self_test as reimo_self_test
+        assert reimo_self_test()
+        enriched=extract_reimo_page(pg,1,found)
+        assert {r["number"] for r in enriched}=={"318019","318031","318034"},enriched
+        assert all(r["catalogue_identity_authority"]=="distributor" for r in enriched)
         assert all(r["method"]=="reimo-catalogue-sku-v1" for r in found)
         assert not reimo_2025_rows(doc.new_page(),2)
     with pymupdf.open() as doc:
