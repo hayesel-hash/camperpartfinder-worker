@@ -60,16 +60,19 @@ def main():
     with tempfile.TemporaryDirectory(prefix="rv-shadow-") as tmp:
         dest = Path(tmp) / "catalogue.pdf"
         fingerprint, size = prod.download(a.url, dest)
-        if fingerprint != a.sha256.lower():
+        # "any" = exploratory run: record the observed fingerprint instead of enforcing one.
+        if a.sha256.lower() != "any" and fingerprint != a.sha256.lower():
             raise SystemExit(f"fingerprint mismatch: expected {a.sha256}, got {fingerprint}; refusing to benchmark")
         totals = {"production": collections.Counter(), "v2": collections.Counter()}
         timing = {"production": 0.0, "v2": 0.0}
         disagreements = []
         pages_with = {"production": 0, "v2": 0}
+        text_pages = 0
         with pymupdf.open(dest) as doc, (out / "edges.jsonl").open("w") as f:
             pages = choose_pages(a.pages, a.sample, len(doc))
             for p in pages:
                 page = doc[p - 1]
+                text_pages += len(page.get_text("words")) > 20
                 t0 = time.perf_counter()
                 cur = current_edges(page, a.authority, a.adapter)
                 t1 = time.perf_counter()
@@ -92,7 +95,7 @@ def main():
                 f.write(json.dumps({"page": p, "words": len(page.get_text("words")),
                                     "production": cur, "v2": new}, ensure_ascii=False) + "\n")
     summary = {"url": a.url, "sha256": fingerprint, "bytes": size, "authority": a.authority,
-               "pages_examined": len(pages), "pages": pages,
+               "pages_examined": len(pages), "pages_with_text_layer": text_pages, "pages": pages,
                "edges": {k: dict(v) for k, v in totals.items()},
                "pages_with_any_edge": pages_with,
                "seconds": {k: round(v, 2) for k, v in timing.items()},
@@ -100,7 +103,10 @@ def main():
                "note": "Counts are extractor output, not verified truth. Annotate the disagreement list "
                        "against the PDF pages before using these numbers to justify a full replay."}
     (out / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False))
-    print(json.dumps({k: summary[k] for k in ("pages_examined", "edges", "pages_with_any_edge", "seconds")}, indent=2))
+    print("DISAGREEMENTS (first 25):")
+    for d in disagreements[:25]:
+        print("  ", json.dumps(d, ensure_ascii=False)[:300])
+    print(json.dumps({k: summary[k] for k in ("sha256", "pages_examined", "pages_with_text_layer", "edges", "pages_with_any_edge", "seconds")}, indent=2))
 
 
 if __name__ == "__main__":

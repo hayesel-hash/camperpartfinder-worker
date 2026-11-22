@@ -47,11 +47,12 @@ jobs:
           python3 benchmarks/run_relationship_benchmark.py
           python3 benchmarks/run_relationship_benchmark.py --holdout
   real-pages:
-    # Manual dispatch (from main), or any push to a claude/* review branch with the Reimo defaults.
+    # Manual dispatch (from main) runs the given URL; a push to a claude/* review
+    # branch runs every source in benchmarks/real_sources.json. Read-only.
     if: (github.event_name == 'workflow_dispatch' && inputs.url != '') || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/claude/'))
     needs: synthetic
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -59,13 +60,26 @@ jobs:
       - run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
       - name: Shadow-compare extractors on real catalogue pages
         env:
-          URL: ${{ inputs.url || 'https://www.reimo.com/media/reimo-com/media/pdf/58/9c/20/REIMO-ZP2025_DE_web_low.pdf' }}
-          SHA: ${{ inputs.sha256 || '4c08a5897e9d9ae8db1e74cf35407e9cd0f075185f5545b4b58125bfb200286e' }}
-          AUTH: ${{ inputs.authority || 'distributor' }}
-          ADAPTER: ${{ inputs.adapter || 'reimo-catalogue-v2' }}
+          EVENT: ${{ github.event_name }}
+          URL: ${{ inputs.url }}
+          SHA: ${{ inputs.sha256 }}
+          AUTH: ${{ inputs.authority }}
+          ADAPTER: ${{ inputs.adapter }}
           PAGES: ${{ inputs.pages }}
-          SAMPLE: ${{ inputs.sample || '40' }}
-        run: python3 benchmarks/real_page_shadow.py --url "$URL" --sha256 "$SHA" --authority "$AUTH" --adapter "$ADAPTER" --pages "$PAGES" --sample "$SAMPLE" --out shadow-out
+          SAMPLE: ${{ inputs.sample }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            python3 benchmarks/real_page_shadow.py --url "$URL" --sha256 "$SHA" --authority "$AUTH" --adapter "$ADAPTER" --pages "$PAGES" --sample "$SAMPLE" --out shadow-out/manual
+          else
+            python3 - <<'PY'
+          import json, subprocess, sys
+          for s in json.load(open("benchmarks/real_sources.json")):
+              print(f"\n######## {s['name']} ########", flush=True)
+              subprocess.run([sys.executable, "benchmarks/real_page_shadow.py", "--url", s["url"], "--sha256", s["sha256"],
+                              "--authority", s["authority"], "--adapter", s["adapter"], "--sample", str(s["sample"]),
+                              "--out", f"shadow-out/{s['name']}"])
+          PY
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: relationship-shadow-${{ github.run_id }}
