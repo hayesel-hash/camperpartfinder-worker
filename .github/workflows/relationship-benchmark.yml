@@ -47,7 +47,8 @@ jobs:
           python3 benchmarks/run_relationship_benchmark.py
           python3 benchmarks/run_relationship_benchmark.py --holdout
   real-pages:
-    if: github.event_name == 'workflow_dispatch' && inputs.url != ''
+    # Manual dispatch (from main), or any push to a claude/* review branch with the Reimo defaults.
+    if: (github.event_name == 'workflow_dispatch' && inputs.url != '') || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/claude/'))
     needs: synthetic
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -58,12 +59,12 @@ jobs:
       - run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
       - name: Shadow-compare extractors on real catalogue pages
         env:
-          URL: ${{ inputs.url }}
-          SHA: ${{ inputs.sha256 }}
-          AUTH: ${{ inputs.authority }}
-          ADAPTER: ${{ inputs.adapter }}
+          URL: ${{ inputs.url || 'https://www.reimo.com/media/reimo-com/media/pdf/58/9c/20/REIMO-ZP2025_DE_web_low.pdf' }}
+          SHA: ${{ inputs.sha256 || '4c08a5897e9d9ae8db1e74cf35407e9cd0f075185f5545b4b58125bfb200286e' }}
+          AUTH: ${{ inputs.authority || 'distributor' }}
+          ADAPTER: ${{ inputs.adapter || 'reimo-catalogue-v2' }}
           PAGES: ${{ inputs.pages }}
-          SAMPLE: ${{ inputs.sample }}
+          SAMPLE: ${{ inputs.sample || '40' }}
         run: python3 benchmarks/real_page_shadow.py --url "$URL" --sha256 "$SHA" --authority "$AUTH" --adapter "$ADAPTER" --pages "$PAGES" --sample "$SAMPLE" --out shadow-out
       - uses: actions/upload-artifact@v4
         with:
