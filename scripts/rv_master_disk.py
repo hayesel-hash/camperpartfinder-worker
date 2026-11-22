@@ -55,6 +55,28 @@ CDN_ORIGINS = {
     "www.camperpassie.nl": ("https://d2rqvrnppmk7he.cloudfront.net/catalogs/", "https://www.reimo.com/media/reimo-com/media/pdf/"),
 }
 HOSTS.update(["www.thule.com","www.lippert.com","www.truma.com","www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk"])
+# Dynamic origins are scoped to a specific job returned by our authenticated
+# Supabase gateway, never to arbitrary HTML links encountered while crawling.
+ACTIVE_SOURCE_HOSTS = set()
+
+def authorize_job_origin(url):
+    import ipaddress
+    u = urllib.parse.urlsplit(url)
+    host = u.hostname
+    if u.scheme != "https" or not host or u.username or u.password or u.port:
+        raise Held("invalid approved source origin")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,252}[a-z0-9]", host) or "." not in host or ".." in host:
+        raise Held("invalid approved source hostname")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise Held("IP-literal source host prohibited")
+    ACTIVE_SOURCE_HOSTS.clear()
+    ACTIVE_SOURCE_HOSTS.add(host)
+    return host
+
 def cdn_allowed(url, origin=None):
     u = urllib.parse.urlsplit(url)
     decoded = urllib.parse.unquote(u.path)
@@ -65,7 +87,7 @@ def cdn_allowed(url, origin=None):
 def checked(url):
     u = urllib.parse.urlsplit(url)
     cdn_robot = u.path == "/robots.txt" and any(urllib.parse.urlsplit(p).hostname == u.hostname for ps in CDN_ORIGINS.values() for p in ps)
-    if u.scheme != "https" or (u.hostname not in HOSTS and not cdn_allowed(url) and not cdn_robot) or u.username or u.password or u.port:
+    if u.scheme != "https" or (u.hostname not in HOSTS and u.hostname not in ACTIVE_SOURCE_HOSTS and not cdn_allowed(url) and not cdn_robot) or u.username or u.password or u.port:
         raise Held("source host not allowlisted")
     return u
 
@@ -1083,6 +1105,7 @@ def main(work_mode='any'):
                     break
             if job.get("upgrade_required"):
                 raise RuntimeError("Worker version not accepted by database; no work claimed")
+            authorize_job_origin(job["url"])
             cid, token, mode = job["id"], job["lease"], job["mode"]
             args = {"cid": cid, "tok": token}
             if mode == "batch":
@@ -1168,6 +1191,7 @@ def verify_master():
             if not job:
                 return
             url = job["url"]
+            authorize_job_origin(url)
             if url not in cache:
                 dest = Path(tmp) / "catalogue.pdf"
                 fingerprint, _ = download(url, dest)
@@ -1240,6 +1264,7 @@ def discover_repositories():
         job = claim_with_recovery("repository_claim")
         if not job:
             return
+        authorize_job_origin(job["url"])
         details = {"links":[]}
         try:
             robots_check(job["url"])
@@ -1281,6 +1306,23 @@ def discover_repositories():
 
 
 def self_test():
+    # Only a host from a trusted claimed job is added, never arbitrary links.
+    test_url = "https://official.example.net/parts-library"
+    try:
+        checked(test_url)
+    except Held:
+        pass
+    else:
+        raise AssertionError("unapproved source origin accepted")
+    assert authorize_job_origin(test_url) == "official.example.net"
+    assert checked(test_url).hostname == "official.example.net"
+    try:
+        checked("https://other.example.net/parts-library")
+    except Held:
+        pass
+    else:
+        raise AssertionError("cross-host source URL accepted")
+    ACTIVE_SOURCE_HOSTS.clear()
     from catalogue_relationship_extractor import self_test as relationship_self_test
     assert relationship_self_test()
     with pymupdf.open() as doc:
