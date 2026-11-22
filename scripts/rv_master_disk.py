@@ -1260,14 +1260,14 @@ def discover_repositories():
                 def pdf_candidate(item):
                     target = item["url"] + " " + item["title"]
                     parts = re.search(r"parts|spare|ersatz|catalog|katalog|supersession|cross.reference|parts.book|parts.list", target, re.I)
-                    direct = re.search(r"\\.pdf(?:$|[?])", item["url"], re.I)
+                    direct = re.search(r"\.pdf(?:$|[?])", item["url"], re.I)
                     opaque = (re.search(r"download|asset|attachment|file|document", item["url"], re.I)
                               and re.search(r"spare|parts|catalog|katalog|supersess|cross.reference", item["title"], re.I))
                     return bool(parts and (direct or opaque))
                 pdfs = [r for r in links if pdf_candidate(r)]
                 verified = [dict(r, validated_pdf=True) for r in pdfs[:120] if validate_catalogue_link(r["url"])]
                 verified_urls = {r["url"] for r in verified}
-                listings = [r for r in links if r["url"] not in verified_urls and not re.search(r"\\.pdf(?:$|[?])",r["url"],re.I)]
+                listings = [r for r in links if r["url"] not in verified_urls and not re.search(r"\.pdf(?:$|[?])",r["url"],re.I)]
                 details = {"links":verified+listings[:100],"status":"complete","discovered_total":len(links),"validated_pdfs":len(verified),"pdf_candidates":len(pdfs)}
             else:
                 details = {"links":links[:500],"status":"complete","discovered_total":len(links)}
