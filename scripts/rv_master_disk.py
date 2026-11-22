@@ -1038,6 +1038,28 @@ def relationship_rows(page,p):
         r["page_text_sha256"]=hashlib.sha256(text.encode()).hexdigest()
     return rows
 
+def shadow_relationship_v2(page, p, authority):
+    """SHADOW MODE: run relationship_graph_v2 in the same page traversal.
+    Output goes to the Actions log only; it is never sent to the gateway and
+    can never change a batch outcome."""
+    try:
+        import relationship_graph_v2
+        return relationship_graph_v2.extract_page(page, p, authority)
+    except Exception as exc:  # shadow code must not affect production
+        return [{"kind": "_error", "error": type(exc).__name__}]
+
+
+def shadow_summary(cid, first, last, v2_edges, v1_replacements, v1_catalogue):
+    counts = {}
+    for e in v2_edges:
+        key = e["kind"] if e["kind"] == "_error" else e["kind"] + (":qualified" if e.get("qualifiers") else ":clean")
+        counts[key] = counts.get(key, 0) + 1
+    v1 = {(r.get("original"), r.get("replacement")) for r in v1_replacements} | {(r.get("subject"), r.get("object")) for r in v1_catalogue}
+    v2 = {(e.get("a"), e.get("b")) for e in v2_edges if e["kind"] != "_error"}
+    return {"event": "relationship_v2_shadow", "catalogue": cid, "pages": [first, last], "v2": counts,
+            "v1_total": len(v1), "v2_total": len(v2), "only_v2": len(v2 - v1), "only_v1": len(v1 - v2)}
+
+
 def renew_lease(cid, first_page, tok):
     """Extend active lease and refuse explicitly invalid tokens."""
     try:
@@ -1118,6 +1140,7 @@ def main(work_mode='any'):
                         replacements = []
                         distributor_oems = []
                         catalogue_relations = []
+                        shadow_v2 = []
                         from catalogue_relationship_extractor import extract_page as extract_catalogue_relations
                         for p in range(job["page_start"],job["page_end"]+1):
                             if (p-job["page_start"])%4==0: renew_lease(cid,args.get("first_page"),token)
@@ -1138,6 +1161,8 @@ def main(work_mode='any'):
                                 distributor_oems.extend(distributor_oem_rows(page,p))
                             catalogue_relations.extend(extract_catalogue_relations(
                                 page,p,found,job.get("authority","manufacturer")))
+                            shadow_v2.extend(shadow_relationship_v2(page,p,job.get("authority","manufacturer")))
+                        print(json.dumps(shadow_summary(cid,job["page_start"],job["page_end"],shadow_v2,replacements,catalogue_relations)),flush=True)
                         if len(catalogue_relations)>1000:
                             raise Held("batch relationship claim count exceeds limit")
                         if len(rows) > 2000:
@@ -1566,6 +1591,15 @@ def self_test():
     def unavailable(action,args):
         raise TimeoutError()
     assert finish_with_recovery("finish",{},unavailable,lambda _:None) is None
+    # Shadow v2 extractor: same traversal, log-only, never raises.
+    with pymupdf.open() as doc:
+        page=doc.new_page()
+        page.insert_text((40,50),"Part 12345 replaced by 67890")
+        shadow=shadow_relationship_v2(page,1,"manufacturer")
+        assert [(e["kind"],e["a"],e["b"]) for e in shadow]==[("supersedes","12345","67890")],shadow
+        s=shadow_summary("test",1,1,shadow,relationship_rows(page,1),[])
+        assert s["v2_total"]==1 and s["only_v2"]==0,s
+    assert shadow_relationship_v2(None,1,"manufacturer")[0]["kind"]=="_error"
     print("self-test passed")
 
 
