@@ -1,0 +1,87 @@
+name: Relationship extraction benchmark
+# Read-only. No OIDC token, no gateway, no database writes.
+on:
+  push:
+    paths:
+      - scripts/relationship_graph_v2.py
+      - scripts/catalogue_relationship_extractor.py
+      - scripts/rv_master_disk.py
+      - benchmarks/**
+      - tests/test_relationship_graph_v2.py
+      - .github/workflows/relationship-benchmark.yml
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Allowlisted catalogue PDF URL (leave empty for synthetic benchmark only)
+        default: https://www.reimo.com/media/reimo-com/media/pdf/58/9c/20/REIMO-ZP2025_DE_web_low.pdf
+      sha256:
+        description: Expected SHA-256 of the PDF
+        default: 4c08a5897e9d9ae8db1e74cf35407e9cd0f075185f5545b4b58125bfb200286e
+      authority:
+        description: manufacturer or distributor
+        default: distributor
+      adapter:
+        description: Production adapter to replay
+        default: reimo-catalogue-v2
+      pages:
+        description: Page list like 10-30,200 (empty = evenly spaced sample)
+        default: ""
+      sample:
+        description: Sample size when pages is empty
+        default: "40"
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
+      - name: Regression gates
+        run: python3 -m unittest -v tests.test_relationship_graph_v2
+      - name: Dev and held-out benchmark (production vs v2)
+        run: |
+          python3 benchmarks/run_relationship_benchmark.py
+          python3 benchmarks/run_relationship_benchmark.py --holdout
+  real-pages:
+    # Manual dispatch (from main) runs the given URL; a push to a claude/* review
+    # branch runs every source in benchmarks/real_sources.json. Read-only.
+    if: (github.event_name == 'workflow_dispatch' && inputs.url != '') || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/claude/'))
+    needs: synthetic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5 Pillow==11.3.0
+      - name: Shadow-compare extractors on real catalogue pages
+        env:
+          EVENT: ${{ github.event_name }}
+          URL: ${{ inputs.url }}
+          SHA: ${{ inputs.sha256 }}
+          AUTH: ${{ inputs.authority }}
+          ADAPTER: ${{ inputs.adapter }}
+          PAGES: ${{ inputs.pages }}
+          SAMPLE: ${{ inputs.sample }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            python3 benchmarks/real_page_shadow.py --url "$URL" --sha256 "$SHA" --authority "$AUTH" --adapter "$ADAPTER" --pages "$PAGES" --sample "$SAMPLE" --out shadow-out/manual
+          else
+            python3 - <<'PY'
+          import json, subprocess, sys
+          for s in json.load(open("benchmarks/real_sources.json")):
+              print(f"\n######## {s['name']} ########", flush=True)
+              subprocess.run([sys.executable, "benchmarks/real_page_shadow.py", "--url", s["url"], "--sha256", s["sha256"],
+                              "--authority", s["authority"], "--adapter", s["adapter"], "--sample", str(s["sample"]),
+                              "--out", f"shadow-out/{s['name']}"])
+          PY
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relationship-shadow-${{ github.run_id }}
+          path: shadow-out/
+          retention-days: 30

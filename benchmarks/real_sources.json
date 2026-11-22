@@ -1,0 +1,10 @@
+[
+  {"name": "reimo-2025", "url": "https://www.reimo.com/media/reimo-com/media/pdf/58/9c/20/REIMO-ZP2025_DE_web_low.pdf",
+   "sha256": "4c08a5897e9d9ae8db1e74cf35407e9cd0f075185f5545b4b58125bfb200286e", "authority": "distributor", "adapter": "reimo-catalogue-v2", "sample": 40},
+  {"name": "thetford-c2-parts-list", "url": "https://www.thetford.com/app/uploads/2024/09/PL_CassetteC2_RevC_02242025.pdf",
+   "sha256": "any", "authority": "manufacturer", "adapter": "adaptive-table-v3", "sample": 40},
+  {"name": "thetford-c500-spl", "url": "https://www.thetford.com/app/uploads/2024/07/SPL-Cassette-Toilet-C500-1.pdf",
+   "sha256": "any", "authority": "manufacturer", "adapter": "adaptive-table-v3", "sample": 40},
+  {"name": "thetford-c200-spl", "url": "https://www.thetford.com/app/uploads/2025/01/SPL-Cassette-Toilet-C200.pdf",
+   "sha256": "any", "authority": "manufacturer", "adapter": "adaptive-table-v3", "sample": 40}
+]
