@@ -82,3 +82,58 @@ Do not automatically label distributor cross-references as OEM-certified equival
 - Stop just the new autonomous Range pilot via `cron.unschedule` on `rv-three-page-range-pilot-v1` and `update rv_private.camper_range_pilot_sources_v1 set enabled=false`; preserve raw pages/events.
 - Do not remove or change the marine database, existing released manufacturer parts, or distributor identities.
 - If official Norcold supersessions are contradicted, put precisely those claims on hold after reviewing the evidence. Do not erase source/audit records.
+
+
+## 2026-11-24 17:38–17:52 UTC: CamperMatch fix-plan implementation
+
+Source: user-supplied *CamperPartMatch: why the factory is stuck, and the fix plan* (24 Nov 2026). This is the work-order execution record, not a claim that all six work orders are complete.
+
+### WO-1: GitHub billing and production restart
+- User made `hayesel-hash/camperpartfinder-worker` public. Verified via GitHub API: `private=false`, `visibility=public`.
+- GitHub Actions dispatcher and one earlier six-job matrix started after billing/visibility fix.
+- The 17:32 matrix failed in *all* six workers on `scripts/catalogue_relationship_extractor.py` line 260: new explicit OEM-column sample asserted two candidates but received none. The OIDC authentication and PDF packages installed successfully; this was not a billing failure.
+- Changed `scripts/catalogue_relationship_extractor.py`: a conservative, page-geometry, header-gated two-column matcher for distributor SKU and OEM number. Stages **unreviewed** evidence only; never promotes an inferred replacement. Regression run `45451228517` passed after fix, and later `45452836579` passed.
+- Changed `.github/workflows/rv-runner-capacity.yml`: one recovery matrix is now permitted when a prior executed worker failed on a **different commit** and the current SHA has a successful complete regression. Same failed SHA remains blocked, avoiding infinite paid retries. Bounded wait for regression prevents push-event races.
+- Changed `.github/workflows/reimo-extractor-test.yml`: dispatcher workflow edits now also run the full regression.
+- Recovery matrix `45452922197` was launched by corrected dispatcher at 17:50 UTC. Five of six workers had completed successfully at the most recent check; `extract-1` was still running. Final quality and throughput had **not** yet been established.
+- Separate `rv-range-reader-pilot` serverless Edge Function and database jobs were already deployed concurrently during this work. We inspected, **did not duplicate or rewrite**, that pilot. Observed 17 pages in six successful reading calls and two failed calls at 17:51 UTC. Six Winnebago pages were read in two 3-page requests of ~7.6 seconds each. The 353 MB Reimo document failed PDF.js allocation and was deliberately disabled for serverless use in favour of the disk worker. Raw pages are not verified against a full-document SHA and should not be auto-published.
+- Rollback: revert the three GitHub file commits (subject to later concurrent changes). The new dispatcher cannot continuously redispatch a repeatedly failing same SHA.
+
+### WO-2: Existing staged replacement candidate audit
+- `catalogue_relationship_candidates_v1` contained nine `fits_model` Reimo candidates and **zero** `distributor_manufacturer_crossref` or `stated_replacement_unverified` candidates.
+- `distributor_oem_assertions_v6` contained zero rows. `manufacturer_replacement_assertions_v6` contained zero rows.
+- `replacement_candidates` contained 27 already-verified older candidate rows; **not 27 distributor replacements pending publication**.
+- Therefore no distributor replacements were promoted. Requires actual pairs with publisher + source/page + original wording, 40 sampled examples at >=90%, and user approval to publish as *attributed unverified distributor claims* (not OEM-certified and never fitment).
+- Existing 40 manufacturer-verified edges were joined by two explicit Norcold supersessions at 17:49 UTC (pairs `639569 -> 693298` and `639570 -> 693299`, Thetford-hosted manufacturer parts list PDF p.7; verification version `official-manufacturer-exact-row-manual-20261124-v1`). These were published by a separate manual process while this work was running, **not the newly repaired GitHub worker**. End count: 42.
+
+### WO-3: OEM-column extractor
+- Patched and regression-tested the safe column-aware parser, but the 1,100-page Reimo full replay and its >=40 genuine-claim spot-check have **not** been executed. No new distributor relation candidates as of 17:51 UTC. Do not claim the extractor increased real-world relationship yield until measured.
+
+### WO-4: Link-rich source reconnaissance, not yet admission
+- **HWH** (7,592 published unlinked): official parts manual PDF `https://www.hwhcorp.com/ml11428-15.pdf` and existing-part/replacement-number quick-reference `https://www.hwhcorp.com/ml11428qr_007.html`; HWH Europe `https://www.hwh-europe.com/download/quickrefjacks.pdf` mainly lists *components* of jacks, which must NOT be mistaken for substitutes for the whole jack. The automated robots check for these hosts is unavailable; do **not** bypass it. Obtain an owner-supplied catalogue via Drive if inaccessible.
+- **Winnebago** (3,725): `https://www.winnebago.com/owners/owner-resources/manuals-and-diagrams/supplier-links` identifies OEM suppliers, not automatic equivalence; no cross-reference source yet verified. New independent PDF Range pilot has begun extracting Winnebago pages.
+- **Fiamma** (2,945): `https://www.agentfiamma.co.uk/fiamma-awning-spares/` retailer spare-part catalogue; no cross-manufacturer equivalence demonstrated.
+- **Dexter** (1,338): `https://loyalaxles.com/resources/trailer-brake-parts-cross-reference/` publishes Dexter/AL-KO/aftermarket comparison table; source authority and robots/terms must be checked before queue admission.
+- **Norcold** (1,076 previously unlinked; now two more official pairs): Thetford-hosted Norcold parts lists already source exact supersessions; prioritize OEM cross-reference documents separately.
+- **Jokon** (587): `https://quickparts.mobi/store-online-jokon/` retailer claims to identify old/discontinued Jokon references and compatible replacements; no machine-readable pairs verified yet.
+- **Thetford** (~524): parts manuals provided 40 verified manufacturer supersessions; aftermarket alternatives require additional retailer-source discovery.
+- These are **source leads**, not approved ingestion/crawl permissions. No robots-block bypass or unverified equivalence publication.
+
+### WO-5: Correct misleading name baseline
+- The old "only 36 unnamed parts" metric was materially wrong: **7,555 of 7,592 HWH parts** have names of the form `HWH catalogue part APxxxx`. They are placeholders and must be counted as **not cleanly named**.
+- Corrected conservative *candidate* clean-name count from SQL excluding generic catalogue-part and empty/placeholder prefixes: **12,677 / 20,268**. Additional Winnebago names are shortened/truncated; therefore this is an **upper-bound heuristic**, not a verified 90%-precision count.
+- Only early Winnebago PDF pilot pages available so far: too little to produce and validate a 40-row unique clean-name improvement batch. No existing part names were overwritten.
+
+### Current accepted outcomes
+- Github public Actions execution restored.
+- Production matrix started successfully with the repaired parser; final result still pending.
+- Independent serverless PDF reader demonstrated non-zero pages without Actions, but is still a pilot and not integrated into main publication.
+- Manufacturer-verified links increased 40 -> 42 via another process; manufacturer part count remained 20,268.
+- **No newly published attributed distributor alternatives and no verified clean-name growth have been demonstrated from these changes yet.**
+
+### Immediate follow-up
+1. Check run `45452922197` final 6/6 success and per-run published part and relationship deltas; address any concrete remaining worker error.
+2. Allow and inspect actual distributor/OEM candidates after controlled page-range extraction on a sample Reimo PDF, then run a 40-row source-page audit; do not rerun all 1,100 pages blindly.
+3. Decide attributed distributor claims publication policy. Preserve distinct authority and relationship kinds.
+4. Keep the serverless range pilot operating only on small PDFs it can safely handle; add extraction + evidence quality gates before it becomes production publisher.
+5. Obtain official HWH replacement/name manuals via approved access and use them to replace generic placeholder names, tested on >=40 random rows, while explicitly distinguishing jack *components* from jack *replacements*.
