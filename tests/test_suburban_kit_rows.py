@@ -13,10 +13,19 @@ import rv_master_disk as worker
 
 
 def page_from_fixture(items):
+    """Rebuild a page from [text, x, y(, width)] positions (PDF points, origin
+    bottom-left). When the captured width is present the font size is chosen so
+    the text spans the same width as in the original document."""
     doc = pymupdf.open()
     page = doc.new_page(width=612, height=792)
-    for text, x, y in items:
-        page.insert_text((x, 792 - y), text, fontsize=7)
+    for item in items:
+        text, x, y = item[:3]
+        size = 7
+        if len(item) > 3 and item[3]:
+            unit = pymupdf.get_text_length(text, fontname="helv", fontsize=1)
+            if unit:
+                size = max(4, min(40, item[3] / unit))
+        page.insert_text((x, 792 - y), text, fontsize=size)
     return doc, page
 
 

@@ -379,23 +379,38 @@ def part_hash_table_rows(page,p):
         return re.fullmatch(r"[A-Z]{0,4}\d[0-9A-Z-]{3,14}",t) and len(re.sub(r"\D","",t))>=5
     out=[]
     for i,line in enumerate(lines):
+        line_name=""
         for j,w in enumerate(line):
             if w[4].lower()!="part": continue
             rest=line[j+1:]
             if not rest or not re.fullmatch(r"#|no\.?|number",rest[0][4],re.I): continue
             hx0,hx1=w[0],rest[0][2]
-            # Nearest heading block above the header, overlapping it horizontally.
+            # A table ends where the next "Part #" column group starts on the
+            # same header line (side-by-side tables), else at its last header word.
+            nxt=[v[0] for v in line[j+2:] if v[4].lower()=="part"]
+            limit=min(nxt)-4 if nxt else hx0+430
+            tx1=max([v[2] for v in line[j+1:] if v[0]<limit] or [hx1])
+            # Nearest heading block above the header: the phrase (words closer
+            # than a column gutter) that overlaps this table horizontally.
+            def over(line_words):
+                groups=[]
+                for v in line_words:
+                    if groups and v[0]-groups[-1][-1][2]<=30: groups[-1].append(v)
+                    else: groups.append([v])
+                return [v for g in groups if any(u[0]<tx1 and u[2]>=hx0-10 for u in g) for v in g]
             heading=[]
             for k in range(i-1,-1,-1):
-                cand=[v for v in lines[k] if v[0]<=hx1+250 and v[2]>=hx0-10]
+                cand=over(lines[k])
                 if cand and caps_heading(cand):
                     heading.insert(0," ".join(v[4] for v in cand))
                     if k>0:
-                        prev=[v for v in lines[k-1] if v[0]<=hx1+250 and v[2]>=hx0-10]
+                        prev=over(lines[k-1])
                         if prev and caps_heading(prev) and lines[k][0][1]-lines[k-1][0][1]<=24:
                             heading.insert(0," ".join(v[4] for v in prev))
                     break
-            name=re.sub(r"\s+"," "," ".join(heading)).strip()
+            # Side-by-side column groups on one header line share the product heading.
+            name=re.sub(r"\s+"," "," ".join(heading)).strip() or line_name
+            line_name=name
             for row in lines[i+1:]:
                 lead=[v for v in row if abs(v[0]-hx0)<=8 and number(v[4])]
                 if len(lead)!=1: break
@@ -403,7 +418,7 @@ def part_hash_table_rows(page,p):
                 cells=[]
                 for v in sorted(row,key=lambda v:v[0]):
                     if v[0]<=n[2]: continue
-                    if v[0]>hx0+430: break
+                    if v[0]>=limit: break
                     if cells and v[0]-cells[-1][-1][2]<=8: cells[-1].append(v)
                     else: cells.append([v])
                 attrs=[" ".join(c[4] for c in cell) for cell in cells]

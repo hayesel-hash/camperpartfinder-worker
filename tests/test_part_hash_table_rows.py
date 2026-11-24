@@ -64,5 +64,23 @@ class PartHashTables(unittest.TestCase):
         self.assertTrue(all(r["description"].startswith("LEVEL UP HYDRAULIC") for r in rows))
 
 
+
+class SideBySidePartTables(unittest.TestCase):
+    def test_each_table_stops_at_the_next_part_column_group(self):
+        import pymupdf
+        doc = pymupdf.open(); page = doc.new_page(width=612, height=792)
+        items = [("SUPER SLIDE II TRIM KITS", 40, 100), ("Part #", 40, 140), ("Width", 100, 140),
+                 ("Part #", 300, 140), ("Width", 360, 140),
+                 ("370676", 40, 155), ('24"', 100, 155), ("370682", 300, 155), ('32"', 360, 155),
+                 ("370680", 40, 170), ('28"', 100, 170), ("370692", 300, 170), ('36"', 360, 170)]
+        for t, x, y in items:
+            page.insert_text((x, y), t, fontsize=8)
+        rows = {r["number"]: r["description"] for r in worker.part_hash_table_rows(page, 1)}
+        doc.close()
+        self.assertEqual(rows["370676"], 'SUPER SLIDE II TRIM KITS (24")')
+        self.assertEqual(rows["370682"], 'SUPER SLIDE II TRIM KITS (32")')
+        self.assertEqual(set(rows), {"370676", "370680", "370682", "370692"})
+
+
 if __name__ == "__main__":
     unittest.main()
