@@ -575,13 +575,42 @@ def order_number_rows(page,p):
         descs=[d for d in words if DESC_HEADER.fullmatch(d[4]) and d[2]<=top[0] and band[0]<=cy(d)<=band[1]]
         if not descs: continue
         d=max(descs,key=lambda d:d[0])
-        head_words={id(top),id(bot)}
+        head_words={id(top),id(bot),id(d)}
         centre=(min(top[0],bot[0])+max(top[2],bot[2]))/2
         half=max(22,(max(top[2],bot[2])-min(top[0],bot[0]))/2+8)
-        # any other column heading between description and number bounds the name
-        others=[v[0] for v in words if id(v) not in head_words and v is not d and d[2]<v[0]<min(top[0],bot[0]) and band[0]<=cy(v)<=band[1] and re.search(r"[A-Za-z]{2}",v[4])]
-        right=min(others+[centre-half])
-        heads.append({"desc_x":d[0]-1.5,"right":right,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
+        # Other column headings on the band, as phrases ("Zul. Gesamtgewicht").
+        band_lines=[]
+        for v in sorted((v for v in words if id(v) not in head_words and band[0]<=cy(v)<=band[1] and re.search(r"[A-Za-zÄÖÜäöüß]{2}",v[4])),key=cy):
+            if band_lines and abs(cy(v)-band_lines[-1][0])<=2.5: band_lines[-1][1].append(v)
+            else: band_lines.append([cy(v),[v]])
+        phrases=[]
+        for y,ws in band_lines:
+            ws.sort(key=lambda v:v[0]); start=len(phrases)
+            for v in ws:
+                if len(phrases)>start and 0<=v[0]-phrases[-1][1]<=4.5: phrases[-1][1]=v[2]
+                else: phrases.append([v[0],v[2],y])
+        dc=cx(d)
+        nxt=[ph for ph in phrases if ph[0]>d[2] and ph[1]<=min(top[0],bot[0])]
+        prv=[ph for ph in phrases if ph[1]<d[0]]
+        # A centred name column can start left of its heading and a dimensions
+        # column can start left of its own: bound the name halfway to the
+        # neighbouring headings. When the next column is the number itself,
+        # left-aligned names may run right up to the number column.
+        attr=None
+        if nxt:
+            nxt.sort(key=lambda ph:ph[0]); ph=nxt[0]; pc=(ph[0]+ph[1])/2
+            right=max(d[2]+4,(dc+pc)/2); by_centre=True
+            # the adjacent column (e.g. "Maße"), used only to tell apart rows
+            # whose printed names are identical
+            after=[q for q in phrases if q[0]>ph[1]]
+            attr=(right,((pc+(min(after,key=lambda q:q[0])[0]+min(after,key=lambda q:q[0])[1])/2)/2) if after else centre-half)
+        else:
+            right=centre-half; by_centre=False
+        left=d[0]-1.5
+        if prv:
+            ph=max(prv,key=lambda ph:ph[1])
+            left=min(left,(dc+(ph[0]+ph[1])/2)/2)
+        heads.append({"desc_x":left,"right":right,"by_centre":by_centre,"attr":attr,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
     if not heads: return []
     page_text=" ".join(w[4] for w in words)
     mangled=repair_mac_roman(page_text)!=page_text
@@ -593,17 +622,29 @@ def order_number_rows(page,p):
         inside=[w for w in words if h["bottom"]<cy(w)<end]
         nums=[w for w in inside if abs(cx(w)-h["centre"])<=h["half"] and ORDER_NUMBER.fullmatch(w[4]) and len(re.sub(r"\D","",w[4]))>=5]
         if not nums: continue
-        desc=[w for w in inside if w[0]>=h["desc_x"] and w[0]<h["right"]-1 and not any(w is n for n in nums)]
-        lines=[]
-        for w in sorted(desc,key=lambda w:(cy(w),w[0])):
-            if lines and abs(cy(w)-lines[-1][0])<=2.5: lines[-1][1].append(w)
-            else: lines.append([cy(w),[w]])
-        names={id(n):[] for n in nums}
-        for y,ws in lines:
-            n=min(nums,key=lambda n:abs(cy(n)-y))
-            if abs(cy(n)-y)<=12: names[id(n)].append(" ".join(v[4] for v in sorted(ws,key=lambda v:v[0])))
+        desc=[w for w in inside if w[0]>=h["desc_x"] and (cx(w)<h["right"] if h["by_centre"] else w[0]<h["right"]-1) and not any(w is n for n in nums)]
+        def by_row(ws_in):
+            groups=[]
+            for w in sorted(ws_in,key=lambda w:(cy(w),w[0])):
+                if groups and abs(cy(w)-groups[-1][0])<=2.5: groups[-1][1].append(w)
+                else: groups.append([cy(w),[w]])
+            got={id(n):[] for n in nums}
+            for y,ws in groups:
+                n=min(nums,key=lambda n:abs(cy(n)-y))
+                if abs(cy(n)-y)<=12: got[id(n)].append(" ".join(v[4] for v in sorted(ws,key=lambda v:v[0])))
+            return got
+        names=by_row(desc)
+        base={id(n):re.sub(r"\s+"," "," ".join(names[id(n)])).strip() for n in nums}
+        if h["attr"] and len(set(base.values()))<len(base):
+            a0,a1=h["attr"]
+            attrs=by_row([w for w in inside if a0<=cx(w)<a1 and not any(w is n for n in nums)])
+            from collections import Counter
+            seen=Counter(base.values())
+            for n in nums:
+                extra=", ".join(attrs[id(n)])
+                if extra and seen[base[id(n)]]>1: base[id(n)]+=" ("+extra+")"
         for n in nums:
-            name=re.sub(r"\s+"," "," ".join(names[id(n)])).strip()
+            name=base[id(n)]
             if mangled: name=repair_mac_roman(name)
             if len(re.findall(r"[A-Za-zÄÖÜäöüß]",name))<3: continue
             out.append({"page":p,"number":n[4],"position":f"x{round(n[0])} y{round(n[1])} col{round(cx(n))}","description":name[:240],"method":"labelled-column-v1"})

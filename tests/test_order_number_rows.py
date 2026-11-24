@@ -16,7 +16,7 @@ sys.path.insert(0, HERE)
 import rv_master_disk as worker
 from test_suburban_kit_rows import page_from_fixture
 
-FIXTURE = "knott_2026_spl_p40_p41_comp_p122_positions.json"
+FIXTURE = "knott_2026_spl_p40_p41_comp_p122_p289_positions.json"
 
 
 def rows(page_no):
@@ -70,6 +70,26 @@ class KnottOrderNumberTables(unittest.TestCase):
         self.assertEqual(names["421091.001"], "Fernbedienung easydriver 2.3 und 3.1")
         for name in names.values():
             self.assertNotRegex(name, r"\b(1200|1800|33,00|20 A)\b")
+
+    def test_centred_name_column_is_read_whole(self):
+        # Page 289 centres names under "Bezeichnung"; the second line starts
+        # left of the heading and the "Maße" values start left of theirs.
+        names = {r["number"]: r["description"] for r in rows(289)}
+        self.assertEqual(len(names), 14)
+        self.assertTrue(names["409705.001"].startswith("7-pol. Stecker 7-pol. Kupplung"))
+        self.assertTrue(names["409109.001"].startswith("13-pol. Stecker 13-pol. Kupplung"))
+        for n in ("424201", "52-5180-017"):  # ID-Nr. column, not order numbers
+            self.assertNotIn(n, names)
+
+    def test_identical_names_are_told_apart_by_the_adjacent_column(self):
+        names = {r["number"]: r["description"] for r in rows(289)}
+        self.assertEqual(len(set(names.values())), 14)
+        self.assertIn("0,50m Arbeitslänge", names["409705.001"])
+        self.assertIn("7,50m Arbeitslänge", names["420691.001"])
+        self.assertNotIn("0,20", names["409705.001"])  # weight column stays out
+        # unique names are left alone
+        self.assertEqual(dict((r["number"], r["description"]) for r in rows(122))["424339.001"],
+                         "easydriver active 2.0 für Einachser")
 
     def test_rows_are_publishable_labelled_columns(self):
         for r in rows(41):
