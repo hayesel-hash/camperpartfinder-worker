@@ -53,9 +53,23 @@ jobs:
                 echo "BLOCKED: job classification failed. No dispatch."
                 exit 0
               }
+              # A corrected, independently regression-tested commit is not an
+              # unbounded retry of the same broken matrix. Permit one new run
+              # per code SHA only after the previous failure executed on a runner.
+              # If it fails, the SHA becomes the last failed SHA and the
+              # ordinary fail-safe immediately stops subsequent redispatch.
+              previous_sha="$(gh run view "$latest_id" --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)"
+              if [[ "$classification" == "runner_executed" && "$previous_sha" != "$GITHUB_SHA" ]]; then
+                passed="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow reimo-extractor-test.yml --limit 12 --json headSha,status,conclusion | jq --arg sha "$GITHUB_SHA" '[.[] | select(.headSha == $sha and .status == "completed" and .conclusion == "success")] | length')"
+                if [[ "$passed" -ge 1 ]]; then
+                  echo "Previous run failed on a different code revision; current SHA passed the full regression suite. Dispatching one bounded recovery matrix."
+                  gh workflow run rv-master-disk.yml --repo "$GITHUB_REPOSITORY" --ref main
+                  exit 0
+                fi
+                echo "Previous code failed; waiting for a successful regression test of the current commit."
+              fi
               echo "BLOCKED: previous matrix $latest_id: $classification"
-              echo "Any retry requires atomic outage reservation, retry_count < 2, 30-minute cooldown, and verified runner execution."
-              echo "For pre_provisioning_failure check GitHub runner capacity, billing/spending and Actions policy; cause not established."
+              echo "No retry on the same failed commit; check billing/runner availability for pre-provisioning failures."
               exit 0
             fi
             gh workflow run rv-master-disk.yml --repo "$GITHUB_REPOSITORY" --ref main
