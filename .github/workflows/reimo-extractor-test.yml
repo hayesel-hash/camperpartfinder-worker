@@ -1,14 +1,7 @@
 name: Reimo dedicated extractor regression
 on:
   push:
-    paths:
-      - scripts/reimo_remote_extractor.py
-      - scripts/catalogue_relationship_extractor.py
-      - scripts/rv_master_disk.py
-      - .github/workflows/reimo-extractor-test.yml
-      - .github/workflows/rv-runner-capacity.yml
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
