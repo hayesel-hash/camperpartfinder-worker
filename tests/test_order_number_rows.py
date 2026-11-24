@@ -106,6 +106,24 @@ class KnottOrderNumberTables(unittest.TestCase):
         self.assertTrue(names["425029.002"].startswith("Lichtscheibe"))
         self.assertFalse(names["425029.002"].startswith(" ") or names["425029.002"].startswith("("))
 
+    def test_long_left_aligned_name_is_kept_whole(self):
+        # A left-aligned name that runs past the halfway bound must not lose
+        # its middle words; a value that starts in the next column stays out.
+        items = [["Bezeichnung", 185.4, 645.6, 49.8], ["Maße", 404.1, 645.6, 20.4],
+                 ["Bestell-", 544.1, 650.4, 28.9], ["nummer", 542.8, 640.8, 31.6],
+                 ["Klettband zur Sicherung des Losendenrestes von", 185.6, 624.6, 190.0],
+                 ["Zurrgurten nach dem Spannen mit Ring", 185.6, 615.0, 150.0],
+                 ["25 mm", 410.0, 619.8, 20.0], ["412153.001", 537.5, 619.8, 42.3],
+                 ["Staubox Typ 8Z3010 Stahl, pulverbeschichtet schwarz", 185.6, 595.8, 200.0],
+                 ["600 mm", 410.0, 595.8, 24.0], ["425071.001", 537.5, 595.8, 42.3]]
+        doc, page = page_from_fixture(items)
+        try:
+            names = {r["number"]: r["description"] for r in worker.order_number_rows(page, 1)}
+        finally:
+            doc.close()
+        self.assertEqual(names["412153.001"], "Klettband zur Sicherung des Losendenrestes von Zurrgurten nach dem Spannen mit Ring")
+        self.assertEqual(names["425071.001"], "Staubox Typ 8Z3010 Stahl, pulverbeschichtet schwarz")
+
     def test_rows_are_publishable_labelled_columns(self):
         for r in rows(41):
             self.assertEqual(r["method"], "labelled-column-v1")

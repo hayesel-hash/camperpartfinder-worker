@@ -623,7 +623,30 @@ def order_number_rows(page,p):
         inside=[w for w in words if h["bottom"]<cy(w)<end]
         nums=[w for w in inside if abs(cx(w)-h["centre"])<=h["half"] and ORDER_NUMBER.fullmatch(w[4]) and len(re.sub(r"\D","",w[4]))>=5]
         if not nums: continue
-        desc=[w for w in inside if w[0]>=h["desc_x"] and (cx(w)<h["right"] if h["by_centre"] else w[0]<h["right"]-1) and not any(w is n for n in nums)]
+        body=[w for w in inside if not any(w is n for n in nums)]
+        def runs(ws_in):
+            # same-line words with ordinary word spacing form one phrase
+            lines_=[]
+            for w in sorted(ws_in,key=cy):
+                if lines_ and abs(cy(w)-lines_[-1][0])<=2.5: lines_[-1][1].append(w)
+                else: lines_.append([cy(w),[w]])
+            out_=[]
+            for _,ws in lines_:
+                cur=[]
+                for w in sorted(ws,key=lambda w:w[0]):
+                    if cur and 0<=w[0]-cur[-1][2]<=4.5: cur.append(w)
+                    else:
+                        if cur: out_.append(cur)
+                        cur=[w]
+                if cur: out_.append(cur)
+            return out_
+        if h["by_centre"]:
+            # A phrase starting in the name column is the name, whole, up to
+            # the next heading; a phrase starting past halfway is the next
+            # column's (e.g. "0,50m Arbeitslänge" under "Maße").
+            desc=[w for r in runs(body) if h["desc_x"]<=r[0][0]<h["right"] for w in r if w[0]<h["next_x"]-1]
+        else:
+            desc=[w for w in body if w[0]>=h["desc_x"] and w[0]<h["right"]-1]
         def by_row(ws_in):
             groups=[]
             for w in sorted(ws_in,key=lambda w:(cy(w),w[0])):
@@ -640,13 +663,13 @@ def order_number_rows(page,p):
             # Nothing under the heading's half of the row: the name is set
             # further right on this row, so fall back to "up to the next
             # heading" for those rows only.
-            loose=by_row([w for w in inside if w[0]>=h["desc_x"] and w[0]<h["next_x"]-1 and not any(w is n for n in nums)])
+            loose=by_row([w for w in body if w[0]>=h["desc_x"] and w[0]<h["next_x"]-1])
             for n in nums:
                 if not re.search(r"[A-Za-zÄÖÜäöüß]{3}",base[id(n)]):
                     base[id(n)]=re.sub(r"\s+"," "," ".join(loose[id(n)])).strip()
         if h["attr"] and len(set(base.values()))<len(base):
             a0,a1=h["attr"]
-            attrs=by_row([w for w in inside if a0<=cx(w)<a1 and not any(w is n for n in nums)])
+            attrs=by_row([w for r in runs(body) if a0<=r[0][0]<a1 for w in r if w[0]<a1])
             from collections import Counter
             seen=Counter(base.values())
             for n in nums:
