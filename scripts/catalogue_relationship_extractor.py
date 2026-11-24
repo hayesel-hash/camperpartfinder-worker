@@ -37,6 +37,87 @@ def _candidate(page,p,kind,subject,obj,statement,bbox,maker=None,certainty="expl
             "manufacturer":maker or "","certainty":certainty,"method":method,
             "page_text_sha256":hashlib.sha256(page.get_text("text").encode()).hexdigest()}
 
+
+# Playbook WO-3: PDF x-position table evidence, kept as UNREVIEWED distributor
+# assertions. A column association is a catalogue claim, NOT OEM verification.
+LOCAL_HEADER = re.compile(r"^(?:reimo\s+)?(?:art(?:ikel)?[.\s-]?(?:nr|nummer)|bestell[.\s-]?(?:nr|nummer)|item[.\s-]?(?:no|number))\.?$", re.I)
+CROSSREF_HEADER = re.compile(r"^(?:(?:hersteller|original|oem)[.\s-]?(?:nr|nummer|number|no|ref(?:erence)?)|oem|original)\.?$", re.I)
+CROSSREF_CODE = re.compile(r"^[A-Z0-9][A-Z0-9./-]{3,24}$",re.I)
+
+def _column_crossrefs(page, page_number, authority):
+    """Extract explicitly labelled SKU/OEM table rows by PDF column geometry.
+
+    Constrain candidates to a labelled two-column table, a single exact
+    subject and OEM target in the same y-band, and an unqualified statement.
+    Reject ambiguous text, multiple numbers, multi-line pairings and jumps
+    outside each table. No cross-reference is promoted by this function.
+    """
+    if authority != "distributor":
+        return []
+    words = sorted(page.get_text("words"), key=lambda w: (round(w[1] / 3), w[0]))
+    rows = []
+    for w in words:
+        if not rows or abs(w[1] - rows[-1][0]) > 3:
+            rows.append((w[1], [w]))
+        else:
+            rows[-1][1].append(w)
+    lines = []
+    for y, row in rows:
+        ws = sorted(row, key=lambda w: w[0])
+        cells = []
+        for w in ws:
+            if not cells or w[0] - cells[-1][-1][2] > 20:
+                cells.append([w])
+            else:
+                cells[-1].append(w)
+        lines.append((y, ws, [(" ".join(x[4] for x in cell), cell[0][0], cell[-1][2])
+                              for cell in cells]))
+    output = []
+    for index, (hy, hw, hc) in enumerate(lines):
+        local = [(text,x0,x1) for text,x0,x1 in hc if LOCAL_HEADER.fullmatch(text.strip())]
+        target = [(text,x0,x1) for text,x0,x1 in hc if CROSSREF_HEADER.fullmatch(text.strip())]
+        if len(local) != 1 or len(target) != 1:
+            continue
+        _, lx0, lx1 = local[0]
+        _, rx0, rx1 = target[0]
+        if rx0 - lx1 < 35 or rx0 - lx0 > 650:
+            continue
+        boundary = (lx1 + rx0) / 2
+        previous_y = hy
+        for y, ws, cells in lines[index+1:]:
+            if y - hy > 370 or y - previous_y > 37:
+                break
+            previous_y = y
+            # A new header or section terminates the table.
+            if any(LOCAL_HEADER.fullmatch(c[0].strip()) or CROSSREF_HEADER.fullmatch(c[0].strip())
+                   for c in cells):
+                break
+            left = [w[4].strip() for w in ws if w[0] < boundary and w[0] >= lx0 - 28]
+            right = [w[4].strip() for w in ws if w[0] >= boundary and w[0] <= rx1 + 60]
+            local_codes = list(dict.fromkeys(token for token in left if SKU.fullmatch(token)))
+            oem_codes = list(dict.fromkeys(token for token in right
+                               if CROSSREF_CODE.fullmatch(token)
+                               and any(ch.isdigit() for ch in token)))
+            row_text = " ".join(w[4] for w in ws)
+            if len(local_codes) != 1 or len(oem_codes) != 1 or QUALIFIED.search(row_text):
+                continue
+            local_code, target_code = local_codes[0], oem_codes[0]
+            if local_code == target_code or len(row_text) > 200:
+                continue
+            # Avoid interpreting a table of model numbers as OEM crossrefs:
+            # both explicitly named columns are mandatory on the same header.
+            makers = {m.group(0) for m in MAKER.finditer(" ".join(x[0] for x in hc))
+                      if m.group(0).lower() != "reimo"}
+            maker = next(iter(makers)) if len({m.lower() for m in makers}) == 1 else ""
+            statement = f"{local[0][0]} | {target[0][0]} : {local_code} | {target_code}"
+            bbox = (lx0, y, rx1, y + 10)
+            c = _candidate(page, page_number, "distributor_manufacturer_crossref",
+                           local_code, target_code, statement, bbox, maker=maker,
+                           certainty="column_aligned_unreviewed",
+                           method="explicit-sku-oem-columns-v1")
+            if c: output.append(c)
+    return output
+
 def extract_page(page,p,identity_rows=(),authority="distributor"):
     """Returns staged supersession, fitment and Reimo-SKU/OEM candidates.
 
@@ -122,6 +203,7 @@ def extract_page(page,p,identity_rows=(),authority="distributor"):
             certainty="sku_description_alignment_unreviewed",
             method="identity-associated-fitment-v2")
         if c:out.append(c)
+    out.extend(_column_crossrefs(page, p, authority))
     seen=set();unique=[]
     for r in out:
         k=(r["page"],r["kind"],r["subject"],r["object"],r["position"])
@@ -164,6 +246,28 @@ def self_test():
     assert len(x)==1 and x[0]["kind"]=="fits_model" and x[0]["certainty"]=="sku_description_alignment_unreviewed",x
     assert not extract_page(p,1,[{"number":"930681","position":"x90 y50",
        "description":"Geeignet für Boote, Luftzelte und Möbel."}])
+    doc.close()
+
+    # Explicit header and x-aligned table rows qualify for STAGING only.
+    doc=pymupdf.open();p=doc.new_page()
+    p.insert_text((45,75),"Art.-Nr.")
+    p.insert_text((270,75),"Hersteller-Nr.")
+    p.insert_text((45,100),"318019")
+    p.insert_text((270,100),"270.99S")
+    p.insert_text((45,125),"318020")
+    p.insert_text((270,125),"270.99T")
+    rel=extract_page(p,1,[],authority="distributor")
+    assert len(rel)==2 and all(r["kind"]=="distributor_manufacturer_crossref" and r["certainty"]=="column_aligned_unreviewed" for r in rel),rel
+    assert {(x["subject"],x["object"]) for x in rel}=={("318019","270.99S"),("318020","270.99T")},rel
+    assert not extract_page(p,1,[],authority="manufacturer")
+    doc.close()
+    # No column heading -> no inference from neighbouring numbers.
+    doc=pymupdf.open();p=doc.new_page()
+    p.insert_text((45,75),"Part Number")
+    p.insert_text((270,75),"Description")
+    p.insert_text((45,100),"318019")
+    p.insert_text((270,100),"270.99S")
+    assert not extract_page(p,1,[],authority="distributor")
     doc.close()
     return True
 
