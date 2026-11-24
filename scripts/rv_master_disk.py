@@ -530,6 +530,85 @@ def leading_number_rows(page,p):
         out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round(w[0])}","description":text[:240],"method":"leading-number-v1"})
     return out
 
+# Some PDFs (Knott 2026 spare-parts catalogue) store Latin-1 text under a
+# Mac Roman font encoding, so "Bremsgröße" reads "Bremsgrˆfle" and "Ø90mm"
+# reads "ÿ90mm". The substitution is reversible character by character. ASCII
+# "fl" standing for "ß" is left alone: German also has real "fl".
+MAC_ROMAN_MARKERS = set("¸ˆ‰ƒÿ∞ﬂ")
+
+def repair_mac_roman(text):
+    if not MAC_ROMAN_MARKERS.intersection(text) or re.search(r"[äöüÄÖÜß]", text):
+        return text
+    out = []
+    for ch in text:
+        if ch in MAC_ROMAN_MARKERS or ch in "…ÄÅÇÉÑÖÜ":
+            try:
+                ch = ch.encode("mac_roman").decode("latin-1")
+            except UnicodeError:
+                pass
+        out.append(ch)
+    return "".join(out)
+
+# German/English parts tables headed "Bezeichnung | Bestell-/nummer" (Knott),
+# printed side by side under exploded drawings. A row is a number in the
+# order-number column; its name is every description-column line nearer to
+# that number than to any other number in the same table.
+ORDER_NUMBER = re.compile(r"[A-Z]{1,2}\d{2,6}(?:\.\d{2,3}){1,2}|\d{4,6}(?:P\d{2,3}|-\d{1,2}(?:\.\d{2,3})?|(?:\.\d{2,3}){1,2})?")
+ORDER_HEADER_SINGLE = re.compile(r"(?i)bestellnummer|bestell-?nr\.?|best\.-?nr\.?|art\.-?nr\.?|artikel-?nr\.?|artikelnummer")
+DESC_HEADER = re.compile(r"(?i)bezeichnung|benennung|beschreibung|description|designation")
+
+def order_number_rows(page,p):
+    words=page.get_text("words")
+    def cy(w): return (w[1]+w[3])/2
+    def cx(w): return (w[0]+w[2])/2
+    heads=[]
+    for w in words:
+        stack=None
+        if re.fullmatch(r"(?i)bestell-|order|art\.-",w[4]):
+            below=[v for v in words if re.fullmatch(r"(?i)nummer|number|no\.?|nr\.?",v[4]) and abs(cx(v)-cx(w))<=12 and 0<v[1]-w[1]<=14]
+            if below: stack=(w,below[0])
+        elif ORDER_HEADER_SINGLE.fullmatch(w[4]):
+            stack=(w,w)
+        if not stack: continue
+        top,bot=stack
+        band=(top[1]-4,bot[3]+4)
+        descs=[d for d in words if DESC_HEADER.fullmatch(d[4]) and d[2]<=top[0] and band[0]<=cy(d)<=band[1]]
+        if not descs: continue
+        d=max(descs,key=lambda d:d[0])
+        head_words={id(top),id(bot)}
+        centre=(min(top[0],bot[0])+max(top[2],bot[2]))/2
+        half=max(22,(max(top[2],bot[2])-min(top[0],bot[0]))/2+8)
+        # any other column heading between description and number bounds the name
+        others=[v[0] for v in words if id(v) not in head_words and v is not d and d[2]<v[0]<min(top[0],bot[0]) and band[0]<=cy(v)<=band[1] and re.search(r"[A-Za-z]{2}",v[4])]
+        right=min(others+[centre-half])
+        heads.append({"desc_x":d[0]-1.5,"right":right,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
+    if not heads: return []
+    page_text=" ".join(w[4] for w in words)
+    mangled=repair_mac_roman(page_text)!=page_text
+    out=[]
+    for h in heads:
+        # the table ends at the next header below that overlaps it
+        below=[g["top"] for g in heads if g is not h and g["top"]>h["bottom"] and g["desc_x"]<h["centre"]+h["half"] and g["centre"]+g["half"]>h["desc_x"]]
+        end=min(below+[page.rect.height])
+        inside=[w for w in words if h["bottom"]<cy(w)<end]
+        nums=[w for w in inside if abs(cx(w)-h["centre"])<=h["half"] and ORDER_NUMBER.fullmatch(w[4]) and len(re.sub(r"\D","",w[4]))>=5]
+        if not nums: continue
+        desc=[w for w in inside if w[0]>=h["desc_x"] and w[0]<h["right"]-1 and not any(w is n for n in nums)]
+        lines=[]
+        for w in sorted(desc,key=lambda w:(cy(w),w[0])):
+            if lines and abs(cy(w)-lines[-1][0])<=2.5: lines[-1][1].append(w)
+            else: lines.append([cy(w),[w]])
+        names={id(n):[] for n in nums}
+        for y,ws in lines:
+            n=min(nums,key=lambda n:abs(cy(n)-y))
+            if abs(cy(n)-y)<=12: names[id(n)].append(" ".join(v[4] for v in sorted(ws,key=lambda v:v[0])))
+        for n in nums:
+            name=re.sub(r"\s+"," "," ".join(names[id(n)])).strip()
+            if mangled: name=repair_mac_roman(name)
+            if len(re.findall(r"[A-Za-zÄÖÜäöüß]",name))<3: continue
+            out.append({"page":p,"number":n[4],"position":f"x{round(n[0])} y{round(n[1])} col{round(cx(n))}","description":name[:240],"method":"labelled-column-v1"})
+    return out
+
 def coleman_stock_rows(page,p):
     # Stocking lists use quantity - exact part number - description.
     text=page.get_text()
@@ -1048,6 +1127,12 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
             methods[name]=[]
             errors[name]=type(exc).__name__
 
+    # A distributor's "Art.-Nr." column is its own SKU, not the maker's number.
+    if authority=="manufacturer":
+        try: methods["order_number"]=order_number_rows(page,p)
+        except Exception as exc:
+            methods["order_number"]=[]
+            errors["order_number"]=type(exc).__name__
     if adapter=="suburban-kit-v2": methods["kit"]=suburban_kit_rows(page,p)
     if adapter=="coleman-stock-v2": methods["stock"]=coleman_stock_rows(page,p)
     if adapter=="hwh-code-v1": methods["hwh_exact"]=hwh_rows(page,p)
@@ -1062,7 +1147,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     chosen={}
     # Printed-column readers (Suburban kit column, "Part #" tables) name each
     # part from the page; let them win over generic layout guesses.
-    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1,"spare_number":1,"leading_number":1}.get(n,2)):
+    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1,"spare_number":1,"leading_number":1,"order_number":1}.get(n,2)):
         for row in methods[name]: chosen.setdefault(row["number"],row)
     return list(chosen.values()),{"page":p,"generated_strategies":strategies,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
