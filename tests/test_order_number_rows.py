@@ -16,7 +16,7 @@ sys.path.insert(0, HERE)
 import rv_master_disk as worker
 from test_suburban_kit_rows import page_from_fixture
 
-FIXTURE = "knott_2026_spl_p40_p41_comp_p122_p289_positions.json"
+FIXTURE = "knott_2026_spl_p40_p41_p100_comp_p122_p289_positions.json"
 
 
 def rows(page_no):
@@ -123,6 +123,23 @@ class KnottOrderNumberTables(unittest.TestCase):
             doc.close()
         self.assertEqual(names["412153.001"], "Klettband zur Sicherung des Losendenrestes von Zurrgurten nach dem Spannen mit Ring")
         self.assertEqual(names["425071.001"], "Staubox Typ 8Z3010 Stahl, pulverbeschichtet schwarz")
+
+    def test_headings_in_a_shifted_font_are_decoded(self):
+        # Spare-parts pp. 81-180 print "Bestell-/nummer" and "Bezeichnung" in a
+        # subset font 29 code points low ("%HVWHOO", "QXPPHU"); 0 rows before.
+        got = {r["number"]: r["description"] for r in rows(100)}
+        self.assertEqual(len(got), 25)
+        for n in ("8802709X", "98761993", "8700311314", "6J1031.006", "D6325.006", "208352.001", "207556.001"):
+            self.assertIn(n, got)
+        self.assertEqual(got["206799.001"], "Kugelkupplung absperrbar inkl. Schraubenmaterial")
+        self.assertEqual(got["69000393"], "Faltenbalg für Pos. 1+3+4")
+        self.assertNotIn("100", got)
+
+    def test_shift_decoder_leaves_numbers_and_real_words_alone(self):
+        for t in ("8802709X", "D6325.006", "6J1031.006", "KS30", "LKW", "ALU", "Zugkugelkupplung"):
+            self.assertFalse(worker.looks_shifted(t), t)
+        self.assertTrue(worker.looks_shifted("DEVSHUUEDU"))
+        self.assertEqual(worker.unshift29("%HVWHOO\x10"), "Bestell-")
 
     def test_rows_are_publishable_labelled_columns(self):
         for r in rows(41):

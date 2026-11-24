@@ -541,7 +541,7 @@ def repair_mac_roman(text):
         return text
     out = []
     for ch in text:
-        if ch in MAC_ROMAN_MARKERS or ch in "…ÄÅÇÉÑÖÜ":
+        if ch in MAC_ROMAN_MARKERS or ch in "…ÄÅÇÉÑÖÜ‹":
             try:
                 ch = ch.encode("mac_roman").decode("latin-1")
             except UnicodeError:
@@ -553,18 +553,34 @@ def repair_mac_roman(text):
 # printed side by side under exploded drawings. A row is a number in the
 # order-number column; its name is every description-column line nearer to
 # that number than to any other number in the same table.
-ORDER_NUMBER = re.compile(r"[A-Z]{1,2}\d{2,6}(?:\.\d{2,3}){1,2}|\d{4,6}(?:P\d{2,3}|-\d{1,2}(?:\.\d{2,3})?|(?:\.\d{2,3}){1,2})?")
+ORDER_NUMBER = re.compile(r"[A-Z]{1,2}\d{2,6}(?:\.\d{2,3}){1,2}|\d[A-Z]\d{3,5}\.\d{3}|\d{7,10}[A-Z]?|\d{4,6}(?:P\d{2,3}|-\d{1,2}(?:\.\d{2,3})?|(?:\.\d{2,3}){1,2})?")
 ORDER_HEADER_SINGLE = re.compile(r"(?i)bestellnummer|bestell-?nr\.?|best\.-?nr\.?|art\.-?nr\.?|artikel-?nr\.?|artikelnummer")
 DESC_HEADER = re.compile(r"(?i)bezeichnung|benennung|beschreibung|description|designation")
 
+# Some Knott pages (spare-parts catalogue pp. 81-180) set headings and a few
+# words in a subset font whose codes sit 29 below the real characters:
+# "%HVWHOO\x10" is "Bestell-", "QXPPHU" "nummer", \x03 a space.
+def unshift29(text):
+    return "".join(" " if ord(c)==3 else chr(ord(c)+29) if 3<ord(c)<=0x5D else c for c in text)
+
+def looks_shifted(text):
+    if re.search(r"[a-zäöüß]",text): return False
+    core=re.sub(r"[^\x04-\x5d]","",text)
+    if not core or len(re.findall(r"[D-Z\]]",core))<4: return False
+    plain=unshift29(core).strip()
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z \-.]*",plain)) and bool(re.search(r"[aeiou]",plain))
+
 def order_number_rows(page,p):
     words=page.get_text("words")
+    if any(not re.search(r"[a-z]",w[4]) and re.match(r"(?i)(bestell|bezeichnung|nummer)",unshift29(w[4]).strip()) for w in words):
+        words=[tuple(w[:4])+(unshift29(w[4]).strip() if looks_shifted(w[4]) or re.search(r"[\x00-\x1f]",w[4]) else w[4],)+tuple(w[5:]) for w in words]
+        words=[w for w in words if w[4]]
     def cy(w): return (w[1]+w[3])/2
     def cx(w): return (w[0]+w[2])/2
     heads=[]
     for w in words:
         stack=None
-        if re.fullmatch(r"(?i)bestell-|order|art\.-",w[4]):
+        if re.fullmatch(r"(?i)bestell-?|order|art\.-",w[4]):
             below=[v for v in words if re.fullmatch(r"(?i)nummer|number|no\.?|nr\.?",v[4]) and abs(cx(v)-cx(w))<=12 and 0<v[1]-w[1]<=14]
             if below: stack=(w,below[0])
         elif ORDER_HEADER_SINGLE.fullmatch(w[4]):
@@ -614,7 +630,8 @@ def order_number_rows(page,p):
         heads.append({"desc_x":left,"right":right,"by_centre":by_centre,"attr":attr,"next_x":next_x,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
     if not heads: return []
     page_text=" ".join(w[4] for w in words)
-    mangled=repair_mac_roman(page_text)!=page_text
+    # a real "Ä" in a heading must not stop the repair of mangled names
+    mangled=sum(c in MAC_ROMAN_MARKERS for c in page_text)>=2
     out=[]
     for h in heads:
         # the table ends at the next header below that overlaps it
