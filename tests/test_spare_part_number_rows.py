@@ -69,5 +69,19 @@ class SplitSpareHeader(unittest.TestCase):
         self.assertEqual([(r["number"], r["description"]) for r in rows], [("626986", "Storage strap (2x)")])
 
 
+
+class QualifierLines(unittest.TestCase):
+    def test_production_date_line_takes_the_item_name_above(self):
+        import pymupdf
+        doc = pymupdf.open(); page = doc.new_page()
+        for t, x, y in [("Spare part", 261, 50), ("number", 266, 63), ("Spare part", 340, 50), ("number", 345, 63),
+                        ("27", 62, 85), ("Framed cabinet door", 89, 85),
+                        ("Production date > July 2016", 89, 98), ("63500127R", 340, 98)]:
+            page.insert_text((x, y), t, fontsize=9)
+        rows = {r["number"]: r["description"] for r in worker.spare_part_number_rows(page, 1)}
+        doc.close()
+        self.assertEqual(rows["63500127R"], "Framed cabinet door (Production date > July 2016)")
+
+
 if __name__ == "__main__":
     unittest.main()

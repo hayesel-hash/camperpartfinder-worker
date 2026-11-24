@@ -481,6 +481,12 @@ def spare_part_number_rows(page,p):
     for k,(y,desc,item,nums) in enumerate(recs):
         if not nums: continue
         name=desc if re.search(r"[A-Za-z]{3}",desc) else ""
+        # "Production date > July 2016" etc. qualifies the item named on the
+        # number-less line just above (e.g. "Framed cabinet door").
+        if name and re.match(r"(?i)\(?\s*(production date|prod\. date|[<>\u2265\u2264]|from |until |serial)",name) and k>0:
+            prev=recs[k-1]
+            if not prev[3] and re.search(r"[A-Za-z]{3}",prev[1]) and y-prev[0]<=16:
+                name=prev[1]+" ("+name.strip("() ")+")"
         if not name and item:
             above=recs[k-1] if k>0 else None; below=recs[k+1] if k+1<len(recs) else None
             if above and below and not above[3] and not below[3] and not above[2] and not below[2] and y-above[0]<=9 and below[0]-y<=9:
