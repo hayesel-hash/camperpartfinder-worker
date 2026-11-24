@@ -430,6 +430,66 @@ def part_hash_table_rows(page,p):
                 out.append({"page":p,"number":n[4],"position":f"x{round(n[0])} y{round(n[1])} col{round((hx0+hx1)/2)}","description":desc[:240],"method":"labelled-column-v1"})
     return out
 
+def spare_part_number_rows(page,p):
+    # Thetford refrigerator spare-part lists: item no. | description | up to
+    # three stacked "Spare part / number" columns | "Colours available".
+    # Numbers printed between rows (merged cells) are ambiguous and skipped:
+    # a number is accepted only when its own line carries a description, or
+    # when it is level with an item number whose description lines bracket it.
+    words=page.get_text("words")
+    lines=[]
+    for w in sorted(words,key=lambda w:(w[1],w[0])):
+        if not lines or abs(w[1]-lines[-1][0][1])>2.5: lines.append([w])
+        else: lines[-1].append(w)
+    lines=[sorted(line,key=lambda w:w[0]) for line in lines]
+    cols=[]; header_bottom=None
+    for i,line in enumerate(lines):
+        spare=[w for k,w in enumerate(line) if k+1<len(line) and (
+            (w[4]=="Spare" and line[k+1][4].lower()=="part") or (w[4]=="S" and line[k+1][4].lower()=="pare"))]
+        for w in spare:
+            # the column is confirmed by "number" printed underneath
+            below=[v for l2 in lines[i+1:i+3] for v in l2 if v[4].lower()=="number" and abs((v[0]+v[2])/2-(w[0]+40))<=40 and 0<v[1]-w[1]<=20]
+            if below:
+                b=below[0]; cols.append((min(w[0],b[0])-8,max(b[2],w[0]+46)+8)); header_bottom=max(header_bottom or 0,b[3])
+    if not cols: return []
+    cols.sort(); first=cols[0][0]
+    def in_col(w): return any(a<=(w[0]+w[2])/2<=b for a,b in cols)
+    def number(t): return re.fullmatch(r"\d{6,9}[A-Z]{0,2}",t)
+    body=[l for l in lines if l[0][1]>header_bottom+1]
+    # Description column = the most common start of a line's first word with
+    # letters (footnotes at the page margin must not drag it left).
+    starts=[]
+    for l in body:
+        a=[w for w in l if w[0]<first-4 and re.search(r"[A-Za-z]{3}",w[4])]
+        if a: starts.append(round(a[0][0]))
+    if not starts: return []
+    from collections import Counter
+    mode=Counter(starts).most_common(1)[0][0]
+    desc_x=min(x for x in starts if abs(x-mode)<=3)
+    def join(ws):
+        out=""
+        for k,w in enumerate(ws):
+            out+=("" if k and w[0]-ws[k-1][2]<1.5 else " ")+w[4]
+        return re.sub(r"\(\s+","(",re.sub(r"\s+([),])",r"\1",out)).strip(" *")
+    recs=[]
+    for l in body:
+        desc=[w for w in l if desc_x-2<=w[0]<first-4]
+        item=[w for w in l if w[2]<=desc_x-2 and re.fullmatch(r"\d{1,2}",w[4])]
+        nums=[w for w in l if in_col(w) and number(w[4])]
+        recs.append((l[0][1],join(desc) if desc else "",bool(item),nums))
+    out=[]
+    for k,(y,desc,item,nums) in enumerate(recs):
+        if not nums: continue
+        name=desc if re.search(r"[A-Za-z]{3}",desc) else ""
+        if not name and item:
+            above=recs[k-1] if k>0 else None; below=recs[k+1] if k+1<len(recs) else None
+            if above and below and not above[3] and not below[3] and not above[2] and not below[2] and y-above[0]<=9 and below[0]-y<=9:
+                name=(above[1]+" "+below[1]).strip()
+        if not re.search(r"[A-Za-z]{3}",name): continue
+        for w in nums:
+            out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round((w[0]+w[2])/2)}","description":name[:240],"method":"labelled-column-v1"})
+    return out
+
 def coleman_stock_rows(page,p):
     # Stocking lists use quantity - exact part number - description.
     text=page.get_text()
@@ -942,7 +1002,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     # for matching identities. No second parser is required for publication.
     methods={}
     errors={}
-    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows),("part_hash",part_hash_table_rows)):
+    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows),("part_hash",part_hash_table_rows),("spare_number",spare_part_number_rows)):
         try: methods[name]=fn(page,p)
         except Exception as exc:
             methods[name]=[]
@@ -962,7 +1022,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     chosen={}
     # Printed-column readers (Suburban kit column, "Part #" tables) name each
     # part from the page; let them win over generic layout guesses.
-    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1}.get(n,2)):
+    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1,"spare_number":1}.get(n,2)):
         for row in methods[name]: chosen.setdefault(row["number"],row)
     return list(chosen.values()),{"page":p,"generated_strategies":strategies,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
