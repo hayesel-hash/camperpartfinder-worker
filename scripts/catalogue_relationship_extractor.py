@@ -45,77 +45,68 @@ CROSSREF_HEADER = re.compile(r"^(?:(?:hersteller|original|oem)[.\s-]?(?:nr|numme
 CROSSREF_CODE = re.compile(r"^[A-Z0-9][A-Z0-9./-]{3,24}$",re.I)
 
 def _column_crossrefs(page, page_number, authority):
-    """Extract explicitly labelled SKU/OEM table rows by PDF column geometry.
+    """Conservative page-geometry extraction of an explicitly headed OEM table.
 
-    Constrain candidates to a labelled two-column table, a single exact
-    subject and OEM target in the same y-band, and an unqualified statement.
-    Reject ambiguous text, multiple numbers, multi-line pairings and jumps
-    outside each table. No cross-reference is promoted by this function.
+    A candidate needs both a labelled distributor part column and a labelled
+    manufacturer/OEM part column on the same header baseline. A body row must
+    have exactly one SKU per column. Never infer the OEM manufacturer.
+    Candidates are staged, never verified automatically.
     """
     if authority != "distributor":
         return []
-    words = sorted(page.get_text("words"), key=lambda w: (round(w[1] / 3), w[0]))
+    words = sorted(page.get_text("words"), key=lambda w: (w[1], w[0]))
+    # Group by PDF y coordinates, not text-block boundaries. Most manufacturer
+    # tables put individual columns in independent PDF text blocks.
     rows = []
     for w in words:
-        if not rows or abs(w[1] - rows[-1][0]) > 3:
-            rows.append((w[1], [w]))
-        else:
+        y = (w[1] + w[3]) / 2
+        if rows and abs(y - rows[-1][0]) <= 4:
             rows[-1][1].append(w)
-    lines = []
-    for y, row in rows:
-        ws = sorted(row, key=lambda w: w[0])
-        cells = []
-        for w in ws:
-            if not cells or w[0] - cells[-1][-1][2] > 20:
-                cells.append([w])
-            else:
-                cells[-1].append(w)
-        lines.append((y, ws, [(" ".join(x[4] for x in cell), cell[0][0], cell[-1][2])
-                              for cell in cells]))
+        else:
+            rows.append([y, [w]])
     output = []
-    for index, (hy, hw, hc) in enumerate(lines):
-        local = [(text,x0,x1) for text,x0,x1 in hc if LOCAL_HEADER.fullmatch(text.strip())]
-        target = [(text,x0,x1) for text,x0,x1 in hc if CROSSREF_HEADER.fullmatch(text.strip())]
-        if len(local) != 1 or len(target) != 1:
+    for idx, (hy, header_words) in enumerate(rows):
+        local_headers = [w for w in header_words if LOCAL_HEADER.fullmatch(w[4].strip())]
+        oem_headers = [w for w in header_words if CROSSREF_HEADER.fullmatch(w[4].strip())]
+        if len(local_headers) != 1 or len(oem_headers) != 1:
             continue
-        _, lx0, lx1 = local[0]
-        _, rx0, rx1 = target[0]
-        if rx0 - lx1 < 35 or rx0 - lx0 > 650:
+        left_h, right_h = local_headers[0], oem_headers[0]
+        lx0, lx1, rx0, rx1 = left_h[0], left_h[2], right_h[0], right_h[2]
+        if not 35 <= rx0 - lx1 or rx0 - lx0 > 650:
             continue
         boundary = (lx1 + rx0) / 2
-        previous_y = hy
-        for y, ws, cells in lines[index+1:]:
-            if y - hy > 370 or y - previous_y > 37:
+        header_label = left_h[4] + " | " + right_h[4]
+        maker_names = {m.group(0).lower() for m in MAKER.finditer(" ".join(w[4] for w in header_words))
+                       if m.group(0).lower() != "reimo"}
+        maker = next(iter(maker_names)) if len(maker_names) == 1 else ""
+        last_y = hy
+        for y, row in rows[idx + 1:]:
+            if y - hy > 370 or y - last_y > 37:
                 break
-            previous_y = y
-            # A new header or section terminates the table.
-            if any(LOCAL_HEADER.fullmatch(c[0].strip()) or CROSSREF_HEADER.fullmatch(c[0].strip())
-                   for c in cells):
+            last_y = y
+            if any(LOCAL_HEADER.fullmatch(w[4].strip()) or CROSSREF_HEADER.fullmatch(w[4].strip())
+                   for w in row):
                 break
-            left = [w[4].strip() for w in ws if w[0] < boundary and w[0] >= lx0 - 28]
-            right = [w[4].strip() for w in ws if w[0] >= boundary and w[0] <= rx1 + 60]
-            local_codes = list(dict.fromkeys(token for token in left if SKU.fullmatch(token)))
-            oem_codes = list(dict.fromkeys(token for token in right
-                               if CROSSREF_CODE.fullmatch(token)
-                               and any(ch.isdigit() for ch in token)))
-            row_text = " ".join(w[4] for w in ws)
-            if len(local_codes) != 1 or len(oem_codes) != 1 or QUALIFIED.search(row_text):
+            left_words = [w[4].strip() for w in row if lx0 - 28 <= w[0] < boundary]
+            right_words = [w[4].strip() for w in row if boundary <= w[0] <= rx1 + 60]
+            left = list(dict.fromkeys(v for v in left_words if SKU.fullmatch(v)))
+            right = list(dict.fromkeys(v for v in right_words
+                                      if CROSSREF_CODE.fullmatch(v) and any(c.isdigit() for c in v)))
+            statement_row = " ".join(w[4] for w in sorted(row, key=lambda w: w[0]))
+            if len(left) != 1 or len(right) != 1 or QUALIFIED.search(statement_row):
                 continue
-            local_code, target_code = local_codes[0], oem_codes[0]
-            if local_code == target_code or len(row_text) > 200:
+            if left[0] == right[0] or len(statement_row) > 200:
                 continue
-            # Avoid interpreting a table of model numbers as OEM crossrefs:
-            # both explicitly named columns are mandatory on the same header.
-            makers = {m.group(0) for m in MAKER.finditer(" ".join(x[0] for x in hc))
-                      if m.group(0).lower() != "reimo"}
-            maker = next(iter(makers)) if len({m.lower() for m in makers}) == 1 else ""
-            statement = f"{local[0][0]} | {target[0][0]} : {local_code} | {target_code}"
-            bbox = (lx0, y, rx1, y + 10)
-            c = _candidate(page, page_number, "distributor_manufacturer_crossref",
-                           local_code, target_code, statement, bbox, maker=maker,
-                           certainty="column_aligned_unreviewed",
-                           method="explicit-sku-oem-columns-v1")
-            if c: output.append(c)
+            statement = header_label + " : " + left[0] + " | " + right[0]
+            candidate = _candidate(
+                page, page_number, "distributor_manufacturer_crossref",
+                left[0], right[0], statement,
+                (lx0, y, rx1, y + 10), maker=maker,
+                certainty="column_aligned_unreviewed",
+                method="explicit-sku-oem-columns-v2",
+            )
+            if candidate:
+                output.append(candidate)
     return output
 
 def extract_page(page,p,identity_rows=(),authority="distributor"):
