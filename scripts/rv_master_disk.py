@@ -392,10 +392,12 @@ def part_hash_table_rows(page,p):
             tx1=max([v[2] for v in line[j+1:] if v[0]<limit] or [hx1])
             # Nearest heading block above the header: the phrase (words closer
             # than a column gutter) that overlaps this table horizontally.
+            # Word gaps inside one printed heading are ~11pt (incl. a removed
+            # registered mark); adjacent products' headings sit further apart.
             def over(line_words):
                 groups=[]
                 for v in line_words:
-                    if groups and v[0]-groups[-1][-1][2]<=30: groups[-1].append(v)
+                    if groups and v[0]-groups[-1][-1][2]<=16: groups[-1].append(v)
                     else: groups.append([v])
                 return [v for g in groups if any(u[0]<tx1 and u[2]>=hx0-10 for u in g) for v in g]
             heading=[]

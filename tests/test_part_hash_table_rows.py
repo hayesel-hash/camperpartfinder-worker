@@ -82,5 +82,20 @@ class SideBySidePartTables(unittest.TestCase):
         self.assertEqual(set(rows), {"370676", "370680", "370682", "370692"})
 
 
+
+class AdjacentProductHeadings(unittest.TestCase):
+    def test_neighbouring_product_headings_are_not_merged(self):
+        import pymupdf
+        doc = pymupdf.open(); page = doc.new_page(width=612, height=792)
+        for t, x, y in [("8011 ACRYLIC ADHESIVE", 40, 100), ("8019 BONDING ADHESIVE", 160, 100),
+                        ("Part #", 40, 140), ("Size", 90, 140), ("Part #", 160, 140), ("Size", 210, 140),
+                        ("2020002238", 40, 155), ("1 Gallon", 90, 155), ("2020002240", 160, 155), ("5 Gallon", 210, 155)]:
+            page.insert_text((x, y), t, fontsize=8)
+        rows = {r["number"]: r["description"] for r in worker.part_hash_table_rows(page, 1)}
+        doc.close()
+        self.assertEqual(rows["2020002238"], "8011 ACRYLIC ADHESIVE (1 Gallon)")
+        self.assertEqual(rows["2020002240"], "8019 BONDING ADHESIVE (5 Gallon)")
+
+
 if __name__ == "__main__":
     unittest.main()
