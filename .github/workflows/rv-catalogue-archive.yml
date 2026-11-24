@@ -1,0 +1,40 @@
+name: RV catalogue archive
+# Keeps a private copy of every catalogue PDF and the text of every page (see
+# scripts/rv_catalogue_archive.py). Separate from the extraction factory: it never claims
+# extraction work, never publishes anything, and does not trigger the factory dispatcher.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,27,47 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rv-catalogue-archive.yml'
+      - 'scripts/rv_catalogue_archive.py'
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  archive:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        worker: [archive-1, archive-2]
+    concurrency:
+      group: rv-catalogue-archive-${{ matrix.worker }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned PDF library
+        run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5
+      - name: Self-test
+        run: python3 scripts/rv_catalogue_archive.py --self-test
+      - name: Archive catalogues
+        env:
+          RV_ARCHIVE_WORKER: ${{ matrix.worker }}
+        run: python3 scripts/rv_catalogue_archive.py
