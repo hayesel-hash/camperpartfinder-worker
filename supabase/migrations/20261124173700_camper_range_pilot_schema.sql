@@ -1,0 +1,2 @@
+-- Applied live: 2026-11-24. Three-page Range pilot schema and RPCs are tracked in Supabase migration history; see docs/INPUT_FACTORY_PLAYBOOK_IMPLEMENTATION_LOG_2026-11-24.md.
+-- WARNING: This placeholder does not recreate the deployed schema; schema backfill to migration source is required before fresh-environment deployment.
