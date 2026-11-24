@@ -289,6 +289,30 @@ def generic_table_rows(page,p):
     return list({(r["number"],r["position"]):r for r in results}.values()) or positioned_rows(page,p)
 
 
+def suburban_kit_header(words,lines):
+    # Returns (kit column centre, bottom of header) for a printed KIT NO. column.
+    # Accepts the legacy single-line "KIT NO." heading and the 2026 master
+    # parts manual layout where "KIT" is stacked above "NO.".
+    for line in lines:
+        kits=[(a,b) for a,b in zip(line,line[1:]) if a[4].upper()=="KIT" and re.fullmatch(r"NO\.?",b[4],re.I)]
+        if len(kits)==1 and any(w[4].upper()=="DESCRIPTION" for w in line):
+            a,b=kits[0]
+            return (a[0]+b[2])/2, max(w[3] for w in line)
+    kit_words=[w for w in words if w[4].upper()=="KIT"]
+    no_words=[w for w in words if re.fullmatch(r"NO\.?",w[4],re.I)]
+    desc_words=[w for w in words if w[4].upper()=="DESCRIPTION"]
+    found=[]
+    for k in kit_words:
+        kc=(k[0]+k[2])/2
+        for n in no_words:
+            if abs((n[0]+n[2])/2-kc)<=15 and 0<n[1]-k[1]<=25:
+                if any(d[1]>=k[1]-15 and d[3]<=n[3]+15 and d[2]<k[0] for d in desc_words):
+                    found.append((kc,max(k[3],n[3])))
+    if len(found)==1:
+        return found[0]
+    return None
+
+
 def suburban_kit_rows(page,p):
     # Suburban master list uses a right-aligned KIT NO. column.
     # Require the actual printed column heading and six-digit kit identifiers.
@@ -298,20 +322,40 @@ def suburban_kit_rows(page,p):
         if not lines or abs(w[1]-lines[-1][0][1])>4: lines.append([w])
         else: lines[-1].append(w)
     lines=[sorted(line,key=lambda w:w[0]) for line in lines]
-    out=[]
-    for h,line in enumerate(lines):
-        kits=[(a,b) for a,b in zip(line,line[1:]) if a[4].upper()=="KIT" and re.fullmatch(r"NO\.?",b[4],re.I)]
-        if len(kits)!=1 or not any(w[4].upper()=="DESCRIPTION" for w in line): continue
-        a,b=kits[0]; center=(a[0]+b[2])/2
-        for row in lines[h+1:]:
-            candidates=[w for w in row if re.fullmatch(r"\d{6}",w[4]) and abs((w[0]+w[2])/2-center)<=22]
-            if len(candidates)!=1: continue
-            w=candidates[0]
-            desc=" ".join(v[4] for v in row if v[2]<w[0]-8)
-            # A number printed in a labelled kit column is sufficient for identity.
-            # Do not invent a description or infer fitment from adjacent rows.
-            if not re.search(r"[A-Za-z]{3}",desc): desc="Manufacturer replacement kit"
-            if len(desc)>240: desc="Manufacturer replacement kit"
+    header=suburban_kit_header(words,lines)
+    if not header: return []
+    center,top=header
+    # Ignore the left-hand ILLUSTRATED ITEM column (callouts, "PICTURE NOT AVAILABLE").
+    illustrated=[w[2] for w in words if w[4].upper() in ("ILLUSTRATED","ITEM") and w[3]<=top+1]
+    gutter=max(illustrated) if illustrated else -1
+    def kit(w): return re.fullmatch(r"\d{6}",w[4]) and abs((w[0]+w[2])/2-center)<=22
+    recs=[]
+    for line in lines:
+        if line[0][1]<=top+1: continue
+        kits=[w for w in line if kit(w)]
+        text_words=[w for w in line if not kit(w) and w[2]<center-30 and w[0]>gutter]
+        text=" ".join(w[4] for w in text_words).strip()
+        recs.append((line[0][1],kits,text,min((w[0] for w in text_words),default=None)))
+    lefts=[left for _,_,text,left in recs if left is not None and re.search(r"[A-Za-z]{3}",text) and not text.startswith("(")]
+    base=min(lefts) if lefts else None
+    out=[]; heading=None; heading_y=None; previous_heading=False
+    for y,kits,text,left in recs:
+        indented_as_heading=(base is not None and left is not None and left<=base+6
+            and re.search(r"[A-Za-z]{3}",text) and not text.startswith("(")
+            and not re.fullmatch(r"PICTURE NOT AVAILABLE",text,re.I))
+        if indented_as_heading and not kits:
+            # A component heading may wrap onto a second line.
+            heading=(heading+" "+text) if previous_heading and heading_y is not None and y-heading_y<=20 else text
+            heading_y=y; previous_heading=True
+            continue
+        previous_heading=False
+        for w in kits:
+            # The printed component heading names the kit; model lines are fitment
+            # scope only and are never used as the part name.
+            if indented_as_heading: desc=text
+            elif heading: desc=heading
+            else: desc=re.sub(r"^\d{1,3}\s+","",text)
+            if not re.search(r"[A-Za-z]{3}",desc) or len(desc)>240: desc="Manufacturer replacement kit"
             out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round(center)}","description":desc,"method":"labelled-column-v1"})
     return out
 
@@ -845,8 +889,10 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     generated,strategies=synthesise_layouts(page,p,authority,family_profile)
     methods["synthesised"]=generated
     chosen={}
-    for name,rows in methods.items():
-        for row in rows: chosen.setdefault(row["number"],row)
+    # The Suburban kit column names each kit by its printed component heading;
+    # let it win over generic layout guesses for the same number.
+    for name in sorted(methods,key=lambda n:n!="kit"):
+        for row in methods[name]: chosen.setdefault(row["number"],row)
     return list(chosen.values()),{"page":p,"generated_strategies":strategies,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
 
@@ -1541,6 +1587,12 @@ def self_test():
         page.insert_text((450,70),"521099")
         page.insert_text((100,90),"Serial 123456")
         assert [r["number"] for r in suburban_kit_rows(page,1)]==["521099"]
+    with pymupdf.open() as doc:
+        # 2026 Suburban master parts manual: KIT printed above NO., heading rows name the kit.
+        page=doc.new_page()
+        for x,y,t in [(40,50,"ILLUSTRATED"),(260,57,"DESCRIPTION"),(470,50,"KIT"),(470,64,"NO."),(160,90,"LIMIT SWITCH"),(178,105,"NT-20SE"),(460,105,"230849"),(160,120,"(ORDER 521099 SEPARATELY)"),(178,135,"NT-30SP"),(460,135,"525020")]: page.insert_text((x,y),t,fontsize=8)
+        rows=suburban_kit_rows(page,1)
+        assert [(r["number"],r["description"]) for r in rows]==[("230849","LIMIT SWITCH"),("525020","LIMIT SWITCH")],rows
     with pymupdf.open() as doc:
         page=doc.new_page()
         for x,y,t in [(40,50,"DESCRIPTION"),(330,50,"KIT NO."),(450,50,"QTY"),(40,70,"Water valve"),(335,70,"123456"),(450,70,"2"),(40,90,"Drain plug"),(335,90,"123457"),(450,90,"1")]: page.insert_text((x,y),t,fontsize=10)
