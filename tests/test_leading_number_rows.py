@@ -58,5 +58,17 @@ class WinnebagoLeadingNumbers(unittest.TestCase):
                 doc.close()
 
 
+
+class HyphenatedContinuation(unittest.TestCase):
+    def test_trailing_hyphen_joins_longer_continuation(self):
+        import pymupdf
+        doc = pymupdf.open(); page = doc.new_page()
+        for t, x, y in [("164956-01-10A Pod-", 40, 100), ("Taillight, Pass., 9 x 9,", 40, 109), ("Black", 40, 118)]:
+            page.insert_text((x, y), t, fontsize=8)
+        rows = {r["number"]: r["description"] for r in worker.leading_number_rows(page, 1)}
+        doc.close()
+        self.assertEqual(rows["164956-01-10A"], "Pod-Taillight, Pass., 9 x 9,")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -522,8 +522,9 @@ def leading_number_rows(page,p):
         below=[v for v in words if abs(v[0]-anchor)<=3 and 4<v[3]-w[3]<=12]
         if len(below)==1:
             cont=phrase(below[0]); ct=" ".join(v[4] for v in cont)
-            if len(cont)<=3 and not LEADING_NUMBER.match(ct) and not re.match(r"(?i)\(|dimensions|\*",ct):
-                text=(text+" "+ct).strip()
+            hyphenated=text.endswith("-")  # "Pod-" / "Taillight, Pass., 9" x 9"," is one name
+            if (len(cont)<=3 or (hyphenated and len(cont)<=8)) and not LEADING_NUMBER.match(ct) and not re.match(r"(?i)\(|dimensions|\*",ct):
+                text=(text+ct if hyphenated else text+" "+ct).strip()
         letters=re.sub(r"[^A-Za-z]","",text)
         if len(letters)<3 or re.fullmatch(r"(?i)only\.?",text.strip()): continue
         out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round(w[0])}","description":text[:240],"method":"leading-number-v1"})
