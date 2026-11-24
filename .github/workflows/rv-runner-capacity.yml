@@ -60,7 +60,15 @@ jobs:
               # ordinary fail-safe immediately stops subsequent redispatch.
               previous_sha="$(gh run view "$latest_id" --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)"
               if [[ "$classification" == "runner_executed" && "$previous_sha" != "$GITHUB_SHA" ]]; then
-                passed="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow reimo-extractor-test.yml --limit 12 --json headSha,status,conclusion | jq --arg sha "$GITHUB_SHA" '[.[] | select(.headSha == $sha and .status == "completed" and .conclusion == "success")] | length')"
+                # Push can start this dispatcher before its own regression
+                # workflow is finished; wait a bounded 60 seconds rather than
+                # leaving a repaired factory stalled until GitHub's next cron.
+                passed=0
+                for attempt in $(seq 1 12); do
+                  passed="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow reimo-extractor-test.yml --limit 12 --json headSha,status,conclusion | jq --arg sha "$GITHUB_SHA" '[.[] | select(.headSha == $sha and .status == "completed" and .conclusion == "success")] | length')"
+                  [[ "$passed" -ge 1 ]] && break
+                  sleep 5
+                done
                 if [[ "$passed" -ge 1 ]]; then
                   echo "Previous run failed on a different code revision; current SHA passed the full regression suite. Dispatching one bounded recovery matrix."
                   gh workflow run rv-master-disk.yml --repo "$GITHUB_REPOSITORY" --ref main
