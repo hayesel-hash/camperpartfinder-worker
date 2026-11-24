@@ -46,3 +46,39 @@ Do not automatically label distributor cross-references as OEM-certified equival
 3. Wire the quality-approved stage to all applicable publication paths without silently altering existing manufacturer rules; compare 40+ manually page-checked rows per *new* extractor batch before promotion.
 4. Add raw-page token indexing and evidence-backed naming recovery; retain manufacturer identity and attributed descriptions separately.
 5. Measure *new clean names plus documented relationships* per hour, verified both-side coverage, failures per 20-minute window, and source-specific quality.
+
+## 2026-11-24 evening — controlled factory recovery and results
+
+### GitHub budget / runner recovery
+- Repository was changed to **public** by owner; a controlled dispatcher retry succeeded, launching all six GitHub disk-worker jobs (run 45449232188; completed successfully).
+- A new x-position-aware extractor for explicitly labelled distributor SKU / OEM columns was added to `scripts/catalogue_relationship_extractor.py`. Synthetic test initially failed on `Art.-Nr.` punctuation; fixed at SHA `7f2ad1074a18a8c4be83c7e13b5636b1442209c1`, with Reimo regression run 45450007868 passing.
+- The replacement cross-reference output remains **unreviewed distributor evidence**, not manufacturer certification. No real Reimo batch has been selectively replayed through that extractor yet.
+- Exact-current-SHA regression tests are needed before an automatic post-failure worker restart. The Reimo regression workflow now triggers on all main-branch commits, not just Python paths, allowing a corrected commit to satisfy the dispatch circuit breaker.
+
+### Independent serverless reader: deployed and proven, but with a size limit
+- Deployed Supabase Edge Function `rv-range-reader-pilot` with existing factory-secret authentication, RFC9309 robots checks, exact approved source selection and serialized HTTP Range requests. Companion code: `supabase/functions/rv-range-reader-pilot/`; migration: `20261124173700_camper_range_pilot_schema.sql`, later fixed stage RPC, and `20261124174000_range_reader_pilot_dispatch.sql`.
+- Database-owned cron `rv-three-page-range-pilot-v1` dispatches one bounded three-page claim per minute, without GitHub Actions; stores raw page text and x/y spans only.
+- Dometic official PDF: 2 pages saved after 3 Range requests, approximately 3.2 seconds.
+- Winnebago official 241-page PDF (~13.25 MB): first two three-page requests succeeded, each using approximately 1.19 MB transferred in 7.7 seconds, rather than downloading the whole source per batch. Additional pages continue through a real database schedule. **Do not count these raw pages as published product identities.**
+- Reimo 1,100-page PDF (~353 MB) failed with `Array buffer allocation failed` in Edge PDF.js. It was deliberately disabled and blocked in the pilot; preserve GitHub disk processing for enormous PDFs. Do not claim this Range implementation handles 400 MB.
+- PDF page results retain source document identity and page coordinates, but the original whole-file SHA256 is **not independently reverified by Range reads**. They remain staging-only pending integrity and 40-row quality validation.
+- A PostgreSQL `chr(0)` issue initially blocked raw page save; fixed by removing the invalid NUL construction. Edge already strips NULs before transport.
+
+### Verified new relationships from existing official manufacturer PDF
+- Norcold's official Thetford-hosted *N7/N8 Polar Series Parts List* directly states `639569 SUPERSEDED BY 693298` and `639570 SUPERSEDED BY 693299` on physical PDF page 7.
+- Both original and replacement part IDs were already published. Exact source text, SHA256, URL, page, position and manufacturer authority were checked; no conflicting claims.
+- Two exact-source supersessions inserted with version `official-manufacturer-exact-row-manual-20261124-v1`, evidence stored in `rv_private.evidence`; SQL review in `database/evidence_reviews/norcold_20261124_verified_page7.sql`.
+- Verified edges **40 → 42**; covered published parts (both endpoints) **77 → 81**; coverage **0.380% → 0.400%**; manufacturers with verified edges **1 → 2**.
+- No new manufacturer part identities or clean part names were published from the range pilot in this session.
+
+### Outstanding WO-2/3/4/5/6
+- Staged distributor-to-OEM replacement assertions remain at **zero**; the existing nine Reimo fitment candidates cannot be misreported as replacements. A 40-source-row check and owner approval are required before publisher-attributed distributor links can be published.
+- No real Reimo column-aware extraction yield has been demonstrated yet; run a *versioned, selective* relationship replay, not a destructive reset, then sample >=40 real claims if available.
+- Promising link-rich sources identified for review include Dinosaur Electronics' official Dometic/Norcold replacement-board charts, MC Enterprises replacement-parts references, and Dexter Trailer Parts Pro. **Robots and source-rights have not yet been confirmed**, so none should be silently crawled or approved.
+- Raw-page token indexing, high-confidence name recovery and full integration of the 40-row review gate with legacy publication are still incomplete. Do not claim they are deployed.
+- The old 51 database schedules remain; worklist is observational, not yet the sole controller.
+
+### Rollback and safety
+- Stop just the new autonomous Range pilot via `cron.unschedule` on `rv-three-page-range-pilot-v1` and `update rv_private.camper_range_pilot_sources_v1 set enabled=false`; preserve raw pages/events.
+- Do not remove or change the marine database, existing released manufacturer parts, or distributor identities.
+- If official Norcold supersessions are contradicted, put precisely those claims on hold after reviewing the evidence. Do not erase source/audit records.
