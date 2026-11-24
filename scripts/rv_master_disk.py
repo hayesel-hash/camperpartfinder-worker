@@ -604,13 +604,14 @@ def order_number_rows(page,p):
             # whose printed names are identical
             after=[q for q in phrases if q[0]>ph[1]]
             attr=(right,((pc+(min(after,key=lambda q:q[0])[0]+min(after,key=lambda q:q[0])[1])/2)/2) if after else centre-half)
+            next_x=ph[0]
         else:
-            right=centre-half; by_centre=False
+            right=centre-half; by_centre=False; next_x=right
         left=d[0]-1.5
         if prv:
             ph=max(prv,key=lambda ph:ph[1])
             left=min(left,(dc+(ph[0]+ph[1])/2)/2)
-        heads.append({"desc_x":left,"right":right,"by_centre":by_centre,"attr":attr,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
+        heads.append({"desc_x":left,"right":right,"by_centre":by_centre,"attr":attr,"next_x":next_x,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
     if not heads: return []
     page_text=" ".join(w[4] for w in words)
     mangled=repair_mac_roman(page_text)!=page_text
@@ -635,6 +636,14 @@ def order_number_rows(page,p):
             return got
         names=by_row(desc)
         base={id(n):re.sub(r"\s+"," "," ".join(names[id(n)])).strip() for n in nums}
+        if h["by_centre"] and any(not re.search(r"[A-Za-zÄÖÜäöüß]{3}",v) for v in base.values()):
+            # Nothing under the heading's half of the row: the name is set
+            # further right on this row, so fall back to "up to the next
+            # heading" for those rows only.
+            loose=by_row([w for w in inside if w[0]>=h["desc_x"] and w[0]<h["next_x"]-1 and not any(w is n for n in nums)])
+            for n in nums:
+                if not re.search(r"[A-Za-zÄÖÜäöüß]{3}",base[id(n)]):
+                    base[id(n)]=re.sub(r"\s+"," "," ".join(loose[id(n)])).strip()
         if h["attr"] and len(set(base.values()))<len(base):
             a0,a1=h["attr"]
             attrs=by_row([w for w in inside if a0<=cx(w)<a1 and not any(w is n for n in nums)])

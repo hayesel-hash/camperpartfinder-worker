@@ -91,6 +91,21 @@ class KnottOrderNumberTables(unittest.TestCase):
         self.assertEqual(dict((r["number"], r["description"]) for r in rows(122))["424339.001"],
                          "easydriver active 2.0 für Einachser")
 
+    def test_name_set_right_of_centre_falls_back_to_next_heading(self):
+        # A row whose only name text sits right of the halfway bound (but
+        # still before the next heading) keeps that text as its name.
+        items = [["Bezeichnung", 185.4, 645.6, 49.8], ["Maße", 404.1, 645.6, 20.4],
+                 ["Bestell-", 544.1, 650.4, 28.9], ["nummer", 542.8, 640.8, 31.6],
+                 ["Lichtscheibe", 330.0, 619.8, 40.0], ["12 mm", 410.0, 619.8, 20.0], ["425029.002", 537.5, 619.8, 42.3],
+                 ["Lichtscheibe", 330.0, 595.8, 40.0], ["15 mm", 410.0, 595.8, 20.0], ["425029.001", 537.5, 595.8, 42.3]]
+        doc, page = page_from_fixture(items)
+        try:
+            names = {r["number"]: r["description"] for r in worker.order_number_rows(page, 1)}
+        finally:
+            doc.close()
+        self.assertTrue(names["425029.002"].startswith("Lichtscheibe"))
+        self.assertFalse(names["425029.002"].startswith(" ") or names["425029.002"].startswith("("))
+
     def test_rows_are_publishable_labelled_columns(self):
         for r in rows(41):
             self.assertEqual(r["method"], "labelled-column-v1")
