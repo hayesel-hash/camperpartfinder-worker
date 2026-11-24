@@ -359,6 +359,60 @@ def suburban_kit_rows(page,p):
             out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round(center)}","description":desc,"method":"labelled-column-v1"})
     return out
 
+def part_hash_table_rows(page,p):
+    # Catalogue tables headed "Part #" / "Part No." / "Part Number" (e.g. the
+    # Lippert catalogue). Only numbers printed directly under the header, in
+    # consecutive rows, are identities; loose photo callouts are ignored. The
+    # part is named by the nearest ALL-CAPS product heading above the table,
+    # plus the printed attribute cells of its own row.
+    words=[w for w in page.get_text("words") if w[4] not in ("\u00ae","\u2122")]
+    lines=[]
+    for w in sorted(words,key=lambda w:(w[1],w[0])):
+        if not lines or abs(w[1]-lines[-1][0][1])>3: lines.append([w])
+        else: lines[-1].append(w)
+    lines=[sorted(line,key=lambda w:w[0]) for line in lines]
+    def caps_heading(line):
+        t=" ".join(w[4] for w in line)
+        letters=re.sub(r"[^A-Za-z]","",t)
+        return len(letters)>=4 and letters.isupper() and "\u2022" not in t and not re.search(r"\.COM|^\d+$",t)
+    def number(t):
+        return re.fullmatch(r"[A-Z]{0,4}\d[0-9A-Z-]{3,14}",t) and len(re.sub(r"\D","",t))>=5
+    out=[]
+    for i,line in enumerate(lines):
+        for j,w in enumerate(line):
+            if w[4].lower()!="part": continue
+            rest=line[j+1:]
+            if not rest or not re.fullmatch(r"#|no\.?|number",rest[0][4],re.I): continue
+            hx0,hx1=w[0],rest[0][2]
+            # Nearest heading block above the header, overlapping it horizontally.
+            heading=[]
+            for k in range(i-1,-1,-1):
+                cand=[v for v in lines[k] if v[0]<=hx1+250 and v[2]>=hx0-10]
+                if cand and caps_heading(cand):
+                    heading.insert(0," ".join(v[4] for v in cand))
+                    if k>0:
+                        prev=[v for v in lines[k-1] if v[0]<=hx1+250 and v[2]>=hx0-10]
+                        if prev and caps_heading(prev) and lines[k][0][1]-lines[k-1][0][1]<=24:
+                            heading.insert(0," ".join(v[4] for v in prev))
+                    break
+            name=re.sub(r"\s+"," "," ".join(heading)).strip()
+            for row in lines[i+1:]:
+                lead=[v for v in row if abs(v[0]-hx0)<=8 and number(v[4])]
+                if len(lead)!=1: break
+                n=lead[0]
+                cells=[]
+                for v in sorted(row,key=lambda v:v[0]):
+                    if v[0]<=n[2]: continue
+                    if v[0]>hx0+430: break
+                    if cells and v[0]-cells[-1][-1][2]<=8: cells[-1].append(v)
+                    else: cells.append([v])
+                attrs=[" ".join(c[4] for c in cell) for cell in cells]
+                attrs=[a for a in attrs if a!=n[4]]
+                desc=(name+(" ("+", ".join(attrs)+")" if attrs else "")) if name else ", ".join(attrs)
+                if not re.search(r"[A-Za-z]{3}",desc): continue
+                out.append({"page":p,"number":n[4],"position":f"x{round(n[0])} y{round(n[1])} col{round((hx0+hx1)/2)}","description":desc[:240],"method":"labelled-column-v1"})
+    return out
+
 def coleman_stock_rows(page,p):
     # Stocking lists use quantity - exact part number - description.
     text=page.get_text()
@@ -871,7 +925,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     # for matching identities. No second parser is required for publication.
     methods={}
     errors={}
-    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows)):
+    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows),("part_hash",part_hash_table_rows)):
         try: methods[name]=fn(page,p)
         except Exception as exc:
             methods[name]=[]
@@ -889,9 +943,9 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     generated,strategies=synthesise_layouts(page,p,authority,family_profile)
     methods["synthesised"]=generated
     chosen={}
-    # The Suburban kit column names each kit by its printed component heading;
-    # let it win over generic layout guesses for the same number.
-    for name in sorted(methods,key=lambda n:n!="kit"):
+    # Printed-column readers (Suburban kit column, "Part #" tables) name each
+    # part from the page; let them win over generic layout guesses.
+    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1}.get(n,2)):
         for row in methods[name]: chosen.setdefault(row["number"],row)
     return list(chosen.values()),{"page":p,"generated_strategies":strategies,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
