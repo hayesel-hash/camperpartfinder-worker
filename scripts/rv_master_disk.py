@@ -496,6 +496,39 @@ def spare_part_number_rows(page,p):
             out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round((w[0]+w[2])/2)}","description":name[:240],"method":"labelled-column-v1"})
     return out
 
+# Coach-builder service numbers printed at the start of a catalogue line,
+# e.g. Winnebago "133790-02-02B Strap-Tiedown/TV, 25.3"". Distinctive enough
+# (6+2+3 with hyphens) to read without a column header.
+LEADING_NUMBER = re.compile(r"[A-Z0-9]\d{5}-\d{2}-[0-9A-Z]{3}")
+
+def leading_number_rows(page,p):
+    words=page.get_text("words")
+    def phrase(first):
+        # `first` plus following words on the same baseline in the same column
+        out=[first]; last=first
+        for v in sorted((v for v in words if abs(v[3]-first[3])<=1.5 and v[0]>first[0]),key=lambda v:v[0]):
+            if v[0]-last[2]>12: break
+            out.append(v); last=v
+        return out
+    out=[]
+    for w in words:
+        if not LEADING_NUMBER.fullmatch(w[4]): continue
+        # the number must start its column line (optionally after a "(A)" callout)
+        before=[v for v in words if abs(v[3]-w[3])<=1.5 and v[2]<=w[0] and w[0]-v[2]<=12]
+        if before and not (len(before)==1 and re.fullmatch(r"\([A-Z]\)",before[0][4])): continue
+        anchor=before[0][0] if before else w[0]
+        text=" ".join(v[4] for v in phrase(w)[1:])
+        # a short wrapped continuation directly below in the same column ("Supply", "5 Inputs")
+        below=[v for v in words if abs(v[0]-anchor)<=3 and 4<v[3]-w[3]<=12]
+        if len(below)==1:
+            cont=phrase(below[0]); ct=" ".join(v[4] for v in cont)
+            if len(cont)<=3 and not LEADING_NUMBER.match(ct) and not re.match(r"(?i)\(|dimensions|\*",ct):
+                text=(text+" "+ct).strip()
+        letters=re.sub(r"[^A-Za-z]","",text)
+        if len(letters)<3 or re.fullmatch(r"(?i)only\.?",text.strip()): continue
+        out.append({"page":p,"number":w[4],"position":f"x{round(w[0])} y{round(w[1])} col{round(w[0])}","description":text[:240],"method":"leading-number-v1"})
+    return out
+
 def coleman_stock_rows(page,p):
     # Stocking lists use quantity - exact part number - description.
     text=page.get_text()
@@ -1008,7 +1041,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     # for matching identities. No second parser is required for publication.
     methods={}
     errors={}
-    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows),("part_hash",part_hash_table_rows),("spare_number",spare_part_number_rows)):
+    for name,fn in (("table",generic_table_rows),("position",positioned_rows),("adaptive",adaptive_rows),("inline",explicit_inline_rows),("card_label",labelled_card_rows),("part_hash",part_hash_table_rows),("spare_number",spare_part_number_rows),("leading_number",leading_number_rows)):
         try: methods[name]=fn(page,p)
         except Exception as exc:
             methods[name]=[]
@@ -1028,7 +1061,7 @@ def adaptive_page(page,p,adapter,family_profile=None,authority="manufacturer"):
     chosen={}
     # Printed-column readers (Suburban kit column, "Part #" tables) name each
     # part from the page; let them win over generic layout guesses.
-    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1,"spare_number":1}.get(n,2)):
+    for name in sorted(methods,key=lambda n:{"kit":0,"part_hash":1,"spare_number":1,"leading_number":1}.get(n,2)):
         for row in methods[name]: chosen.setdefault(row["number"],row)
     return list(chosen.values()),{"page":p,"generated_strategies":strategies,"signals":page_layout_signals(page),"words":len(page.get_text("words")),"methods":{k:len(v) for k,v in methods.items()},"errors":errors,"failure_class":("parser_error" if errors else "image_only" if not page.get_text("words") else "unrecognised_layout") if not chosen else None,"unique":len(chosen),"profiles":family_templates(page,p) if chosen else [],"layout":"parts" if chosen else "unresolved" if re.search(r"part\s*(?:no\.?|number|#)|spare parts|repair parts|kit no\.",page.get_text(),re.I) else "other"}
 
