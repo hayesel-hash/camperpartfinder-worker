@@ -6,6 +6,7 @@ on:
       - scripts/catalogue_relationship_extractor.py
       - scripts/rv_master_disk.py
       - .github/workflows/reimo-extractor-test.yml
+      - .github/workflows/rv-runner-capacity.yml
   workflow_dispatch:
 permissions:
   contents: read
