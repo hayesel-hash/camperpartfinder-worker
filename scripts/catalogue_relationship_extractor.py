@@ -40,7 +40,7 @@ def _candidate(page,p,kind,subject,obj,statement,bbox,maker=None,certainty="expl
 
 # Playbook WO-3: PDF x-position table evidence, kept as UNREVIEWED distributor
 # assertions. A column association is a catalogue claim, NOT OEM verification.
-LOCAL_HEADER = re.compile(r"^(?:reimo\s+)?(?:art(?:ikel)?[.\s-]?(?:nr|nummer)|bestell[.\s-]?(?:nr|nummer)|item[.\s-]?(?:no|number))\.?$", re.I)
+LOCAL_HEADER = re.compile(r"^(?:reimo\s+)?(?:art(?:ikel)?[.\s-]*(?:nr|nummer)|bestell[.\s-]*(?:nr|nummer)|item[.\s-]*(?:no|number))\.?$", re.I)
 CROSSREF_HEADER = re.compile(r"^(?:(?:hersteller|original|oem)[.\s-]?(?:nr|nummer|number|no|ref(?:erence)?)|oem|original)\.?$", re.I)
 CROSSREF_CODE = re.compile(r"^[A-Z0-9][A-Z0-9./-]{3,24}$",re.I)
 
