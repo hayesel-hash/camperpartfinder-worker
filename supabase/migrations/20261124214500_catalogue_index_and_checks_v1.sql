@@ -1,0 +1,8 @@
+-- Applied live on 24 Nov 2026 alongside 20261124213000_catalogue_archive_v1.sql.
+-- 1. Archive queue priority: catalogues that parts already cite are archived first.
+-- 2. rv_private.catalogue_index_v1: one row per catalogue (read state, archive state, editions,
+--    page text stored, parts and replacements citing it). Read-only.
+-- 3. rv_private.evidence_page_check_v1: re-verifies every evidence quote against the archived
+--    text of the page it cites. Read-only.
+-- The exact statements are recorded in the Supabase migration history under the names
+-- catalogue_archive_priority_v1, catalogue_index_v1 and evidence_page_check_v1.
