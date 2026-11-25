@@ -160,5 +160,36 @@ class MacRomanRepair(unittest.TestCase):
             self.assertEqual(worker.repair_mac_roman(text), text)
 
 
+class JokonMirroredTables(unittest.TestCase):
+    """Jokon V47 catalogue p. 14: "Art.-Nr. / No. | Beschreibung | ..." with
+    the number column on the left, top-aligned rows, the type code under the
+    number, and every word printed twice in identical layers."""
+
+    def rows(self):
+        with open(os.path.join(HERE, "fixtures", "jokon_v47_p14_positions.json")) as f:
+            doc, page = page_from_fixture(json.load(f)["14"])
+        try:
+            return worker.order_number_rows(page, 14)
+        finally:
+            doc.close()
+
+    def test_every_number_once(self):
+        nums = [r["number"] for r in self.rows()]
+        self.assertEqual(len(nums), 14)
+        self.assertEqual(len(set(nums)), 14)
+        for n in ("13.1069.000", "15.0018.100", "19.2035.400", "62.3002.012"):
+            self.assertIn(n, nums)
+
+    def test_names_have_type_german_and_english_without_notes(self):
+        names = {r["number"]: r["description"] for r in self.rows()}
+        self.assertEqual(names["13.1069.000"], "BL 250 Blinkleuchte Kat. 2a DI Light, Cat. 2a")
+        self.assertEqual(names["15.0018.100"], "ZHBL 250b Zusatzbremsleuchte High Level Stop Light")
+        self.assertEqual(names["19.2035.000"], "Abdeckkappen (Paar) chrom covers (pair) chrome")
+        self.assertTrue(names["62.3001.002"].startswith("LDC/LK 100b-1/12V LED-Kontrollbox"))
+        for name in names.values():
+            self.assertNotIn("Zusatz-Information", name)
+            self.assertNotIn("DC", name.split())
+
+
 if __name__ == "__main__":
     unittest.main()

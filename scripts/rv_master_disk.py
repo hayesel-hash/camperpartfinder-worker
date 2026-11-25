@@ -553,7 +553,7 @@ def repair_mac_roman(text):
 # printed side by side under exploded drawings. A row is a number in the
 # order-number column; its name is every description-column line nearer to
 # that number than to any other number in the same table.
-ORDER_NUMBER = re.compile(r"[A-Z]{1,2}\d{2,6}(?:\.\d{2,3}){1,2}|\d[A-Z]\d{3,5}\.\d{3}|\d{7,10}[A-Z]?|\d{4,6}(?:P\d{2,3}|-\d{1,2}(?:\.\d{2,3})?|(?:\.\d{2,3}){1,2})?")
+ORDER_NUMBER = re.compile(r"\d{2}\.\d{4}\.\d{3}|[A-Z]{1,2}\d{2,6}(?:\.\d{2,3}){1,2}|\d[A-Z]\d{3,5}\.\d{3}|\d{7,10}[A-Z]?|\d{4,6}(?:P\d{2,3}|-\d{1,2}(?:\.\d{2,3})?|(?:\.\d{2,3}){1,2})?")
 ORDER_HEADER_SINGLE = re.compile(r"(?i)bestellnummer|bestell-?nr\.?|best\.-?nr\.?|art\.-?nr\.?|artikel-?nr\.?|artikelnummer")
 DESC_HEADER = re.compile(r"(?i)bezeichnung|benennung|beschreibung|description|designation")
 
@@ -575,6 +575,12 @@ def order_number_rows(page,p):
     if any(not re.search(r"[a-z]",w[4]) and re.match(r"(?i)(bestell|bezeichnung|nummer)",unshift29(w[4]).strip()) for w in words):
         words=[tuple(w[:4])+(unshift29(w[4]).strip() if looks_shifted(w[4]) or re.search(r"[\x00-\x1f]",w[4]) else w[4],)+tuple(w[5:]) for w in words]
         words=[w for w in words if w[4]]
+    # Some PDFs (Jokon) print every word twice in identical layers.
+    seen_w=set(); uniq=[]
+    for w in words:
+        k=(w[4],round(w[0]),round(w[1]))
+        if k not in seen_w: seen_w.add(k); uniq.append(w)
+    words=uniq
     def cy(w): return (w[1]+w[3])/2
     def cx(w): return (w[0]+w[2])/2
     heads=[]
@@ -589,7 +595,20 @@ def order_number_rows(page,p):
         top,bot=stack
         band=(top[1]-4,bot[3]+4)
         descs=[d for d in words if DESC_HEADER.fullmatch(d[4]) and d[2]<=top[0] and band[0]<=cy(d)<=band[1]]
-        if not descs: continue
+        if not descs:
+            # Mirrored table (Jokon): "Art.-Nr. | Beschreibung | ...". Number
+            # column on the left, rows top-aligned; the line under the number
+            # is the type code ("BL 250"), the name sits to the right up to
+            # the next heading.
+            rdescs=[d for d in words if DESC_HEADER.fullmatch(d[4]) and d[0]>=max(top[2],bot[2]) and band[0]<=cy(d)<=band[1]]
+            if not rdescs: continue
+            d=min(rdescs,key=lambda d:d[0])
+            nx=[v[0] for v in words if v is not d and v[0]>d[2]+4 and band[0]<=cy(v)<=band[1] and re.search(r"[A-Za-zÄÖÜäöüß]{2}",v[4]) and not DESC_HEADER.fullmatch(v[4])]
+            num_x=min(top[0],bot[0])
+            right=min(nx) if nx else page.rect.width
+            heads.append({"mirror":True,"num_x":num_x,"desc_x":d[0]-1.5,"right":right,"by_centre":False,"attr":None,"next_x":right,
+                          "x0":num_x-8,"x1":right,"centre":num_x,"half":8,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
+            continue
         d=max(descs,key=lambda d:d[0])
         head_words={id(top),id(bot),id(d)}
         centre=(min(top[0],bot[0])+max(top[2],bot[2]))/2
@@ -627,7 +646,7 @@ def order_number_rows(page,p):
         if prv:
             ph=max(prv,key=lambda ph:ph[1])
             left=min(left,(dc+(ph[0]+ph[1])/2)/2)
-        heads.append({"desc_x":left,"right":right,"by_centre":by_centre,"attr":attr,"next_x":next_x,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
+        heads.append({"mirror":False,"desc_x":left,"right":right,"by_centre":by_centre,"attr":attr,"next_x":next_x,"x0":left,"x1":centre+half,"centre":centre,"half":half,"top":min(top[1],d[1]),"bottom":max(bot[3],d[3])})
     if not heads: return []
     page_text=" ".join(w[4] for w in words)
     # a real "Ä" in a heading must not stop the repair of mangled names
@@ -635,10 +654,11 @@ def order_number_rows(page,p):
     out=[]
     for h in heads:
         # the table ends at the next header below that overlaps it
-        below=[g["top"] for g in heads if g is not h and g["top"]>h["bottom"] and g["desc_x"]<h["centre"]+h["half"] and g["centre"]+g["half"]>h["desc_x"]]
+        below=[g["top"] for g in heads if g is not h and g["top"]>h["bottom"] and g["x0"]<h["x1"] and g["x1"]>h["x0"]]
         end=min(below+[page.rect.height])
         inside=[w for w in words if h["bottom"]<cy(w)<end]
-        nums=[w for w in inside if abs(cx(w)-h["centre"])<=h["half"] and ORDER_NUMBER.fullmatch(w[4]) and len(re.sub(r"\D","",w[4]))>=5]
+        in_col=(lambda w:abs(w[0]-h["num_x"])<=8) if h["mirror"] else (lambda w:abs(cx(w)-h["centre"])<=h["half"])
+        nums=[w for w in inside if in_col(w) and ORDER_NUMBER.fullmatch(w[4]) and len(re.sub(r"\D","",w[4]))>=5]
         if not nums: continue
         body=[w for w in inside if not any(w is n for n in nums)]
         def runs(ws_in):
@@ -676,6 +696,11 @@ def order_number_rows(page,p):
             return got
         names=by_row(desc)
         base={id(n):re.sub(r"\s+"," "," ".join(names[id(n)])).strip() for n in nums}
+        if h["mirror"]:
+            typ=by_row([w for r in runs(body) if abs(r[0][0]-h["num_x"])<=8 for w in r if w[0]<h["desc_x"]])
+            for n in nums:
+                t=" ".join(typ[id(n)]).strip()
+                if t and base[id(n)]: base[id(n)]=t+" "+base[id(n)]
         if h["by_centre"] and any(not re.search(r"[A-Za-zÄÖÜäöüß]{3}",v) for v in base.values()):
             # Nothing under the heading's half of the row: the name is set
             # further right on this row, so fall back to "up to the next
