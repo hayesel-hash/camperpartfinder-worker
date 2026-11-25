@@ -112,17 +112,32 @@ def robots_policy(host):
     lines = content.decode("utf-8", errors="replace").splitlines()
     parser = urllib.robotparser.RobotFileParser()
     parser.parse(lines)
-    delay = any(re.match(r"^\s*crawl-delay\s*:\s*[1-9]", line, re.I) for line in lines)
+    # Strictest Crawl-delay anywhere in the file, in seconds (0 if none).
+    values = [float(m.group(1)) for line in lines for m in [re.match(r"^\s*crawl-delay\s*:\s*([0-9]+(?:\.[0-9]+)?)", line, re.I)] if m]
+    delay = max(values, default=0.0)
     ROBOTS_CACHE[host] = (time.monotonic(), parser, delay)
     return parser, delay
 
-def robots_check(url):
+# Hosts whose Crawl-delay has been reviewed by a person: the worker waits out
+# the delay between its requests, up to the cap here (seconds). Any other host
+# with a Crawl-delay stays held for review. Roadmaster approved by Larry,
+# 25 Nov 2026.
+CRAWL_DELAY_REVIEWED = {"www.roadmasterinc.com": 60}
+LAST_FETCH = {}
+
+def robots_check(url, sleep=time.sleep, clock=time.monotonic):
     u = checked(url)
     parser, delay = robots_policy(u.hostname)
     if not parser.can_fetch(AGENT, url):
         raise Held("robots restriction")
     if delay:
-        raise Held("crawl delay requires source review")
+        cap = CRAWL_DELAY_REVIEWED.get(u.hostname)
+        if cap is None or delay > cap:
+            raise Held("crawl delay requires source review")
+        last = LAST_FETCH.get(u.hostname)
+        if last is not None and clock() - last < delay:
+            sleep(delay - (clock() - last))
+        LAST_FETCH[u.hostname] = clock()
 
 
 def open_catalogue(url, policy=None, opener=None):
