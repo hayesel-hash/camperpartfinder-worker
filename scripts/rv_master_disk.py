@@ -549,6 +549,12 @@ def repair_mac_roman(text):
         out.append(ch)
     return "".join(out)
 
+# Some fonts (Jokon) map the "fl"/"fi" ligatures to code points whose high
+# byte is the ASCII letter: "Re\u6600\u6c00ex" is "Reflex". CJK text with a
+# zero low byte does not occur in these catalogues.
+def repair_byte_shifted_ligatures(text):
+    return re.sub(r"[\u4100-\u7a00]",lambda m:chr(ord(m.group())>>8) if ord(m.group())&0xFF==0 else m.group(),text)
+
 # German/English parts tables headed "Bezeichnung | Bestell-/nummer" (Knott),
 # printed side by side under exploded drawings. A row is a number in the
 # order-number column; its name is every description-column line nearer to
@@ -718,7 +724,7 @@ def order_number_rows(page,p):
                 extra=", ".join(attrs[id(n)])
                 if extra and seen[base[id(n)]]>1: base[id(n)]+=" ("+extra+")"
         for n in nums:
-            name=base[id(n)]
+            name=repair_byte_shifted_ligatures(base[id(n)])
             if mangled: name=repair_mac_roman(name)
             if len(re.findall(r"[A-Za-zÄÖÜäöüß]",name))<3: continue
             out.append({"page":p,"number":n[4],"position":f"x{round(n[0])} y{round(n[1])} col{round(cx(n))}","description":name[:240],"method":"labelled-column-v1"})

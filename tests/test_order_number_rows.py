@@ -155,6 +155,10 @@ class MacRomanRepair(unittest.TestCase):
         self.assertEqual(worker.repair_mac_roman("Sensor f¸r ABS 0∞"), "Sensor für ABS 0°")
         self.assertEqual(worker.repair_mac_roman("Spreizschloﬂ"), "Spreizschloß")
 
+    def test_byte_shifted_ligatures(self):
+        self.assertEqual(worker.repair_byte_shifted_ligatures("Re\u6600\u6c00ex-Re\u6600\u6c00ector"), "Reflex-Reflector")
+        self.assertEqual(worker.repair_byte_shifted_ligatures("Zugkugelkupplung"), "Zugkugelkupplung")
+
     def test_leaves_correct_text_alone(self):
         for text in ("für Einachser", "Kappe 90mm", "Größe ÿ", "Flachbundmutter"):
             self.assertEqual(worker.repair_mac_roman(text), text)
