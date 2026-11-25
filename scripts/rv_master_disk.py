@@ -54,7 +54,7 @@ CDN_ORIGINS = {
     "www.knott.de": ("https://cdn.shopify.com/s/files/1/0927/2360/9934/files/",),
     "www.camperpassie.nl": ("https://d2rqvrnppmk7he.cloudfront.net/catalogs/", "https://www.reimo.com/media/reimo-com/media/pdf/"),
 }
-HOSTS.update(["www.thule.com","www.lippert.com","www.truma.com","www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk"])
+HOSTS.update(["www.thule.com","www.lippert.com","www.truma.com","www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk","roadmasterinc.com","www.roadmasterinc.com"])
 # Dynamic origins are scoped to a specific job returned by our authenticated
 # Supabase gateway, never to arbitrary HTML links encountered while crawling.
 ACTIVE_SOURCE_HOSTS = set()
