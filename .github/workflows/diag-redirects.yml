@@ -1,0 +1,28 @@
+name: Diagnose source redirects
+# Prints the redirect chain the worker sees for held sources (headers only;
+# cookie names, never values). No database access, no secrets.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-redirects.yml'
+      - 'scripts/diag_redirects.py'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned PDF library (imported by the worker module)
+        run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5
+      - name: Redirect chains
+        run: >
+          python3 scripts/diag_redirects.py
+          https://www.airstream.com/robots.txt
+          https://www.airstream.com/wp-content/uploads/2026/02/2025-Classic-Parts-Book.pdf
+          https://www.airstream.com/wp-content/uploads/2025/09/2026-Classic-Parts-Book.pdf
