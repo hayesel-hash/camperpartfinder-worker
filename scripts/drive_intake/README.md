@@ -42,3 +42,15 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
 - `scripts/aftermarket_pdf/wfco_catalogue.py` — WFCO product catalogue: door-assembly lines and the model row of
   each SPECIFICATIONS table (test: `tests/test_wfco_catalogue.py`). WFCO's crossover chart (printed p30) is a
   72-dpi raster in the Drive copy and is not read; it waits for a sharper copy.
+- `scripts/aftermarket_pdf/dexter_lit119.py` — Dexter parts kit catalogue LIT-119-00 (03/2017): kit numbers with
+  kit name + description, and every component row of the "Dx Part No. / Quantity / Parts Description" tables.
+  Pass A reads text blocks, pass B word positions (the rotated section label on the page edge is dropped).
+  Instruction/Installation Sheet and LIT- manual rows are left out (test: `tests/test_dexter_lit119.py`).
+
+## Notes from scheduled runs
+- Each "Verified - ..." subfolder of the 200 Catalogue Intake has a `source.txt` (original URL, page count,
+  SHA-256 and the uploaded split parts). Compare the Drive copy's hash with it; ChatGPT's "Use:" line is a
+  description only.
+- Distributor catalogues (Trailer Enterprises sections, Berger, Vecam, Euro Accessoires, Moog) list other makers'
+  numbers against their own: hold them for the third-party tier decision unless the maker of the part itself
+  states the replacement.
