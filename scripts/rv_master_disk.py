@@ -62,6 +62,8 @@ HOSTS.update(["www.thule.com","www.lippert.com","www.truma.com","www.remis.de","
 HOSTS.add("www.dinosaurelectronics.com")
 # Dexter's own axle SKU harmonisation cross-reference (legacy -> standard SKU). Approved by Larry, 26 Nov 2026.
 HOSTS.add("dexterindex.com")
+# Makers' own online parts stores and parts books (Larry's blanket approval, 26 Nov 2026).
+HOSTS.update(["www.lippert.com", "airstream.com"])
 # Dynamic origins are scoped to a specific job returned by our authenticated
 # Supabase gateway, never to arbitrary HTML links encountered while crawling.
 ACTIVE_SOURCE_HOSTS = set()
@@ -119,6 +121,9 @@ def robots_policy(host):
     lines = content.decode("utf-8", errors="replace").splitlines()
     parser = urllib.robotparser.RobotFileParser()
     parser.parse(lines)
+    # Python's parser keeps only the FIRST "User-agent: *" group; sites such as
+    # lippert.com split their rules across two. Keep every applicable rule too.
+    parser.strict_rules = merged_robot_rules(lines)
     # Strictest Crawl-delay anywhere in the file, in seconds (0 if none).
     values = [float(m.group(1)) for line in lines for m in [re.match(r"^\s*crawl-delay\s*:\s*([0-9]+(?:\.[0-9]+)?)", line, re.I)] if m]
     delay = max(values, default=0.0)
@@ -132,10 +137,57 @@ def robots_policy(host):
 CRAWL_DELAY_REVIEWED = {"www.roadmasterinc.com": 60}
 LAST_FETCH = {}
 
+def merged_robot_rules(lines, token=AGENT):
+    """All Allow/Disallow rules that apply to us, merged across repeated groups
+    (Google semantics): groups naming our token win; otherwise every '*' group."""
+    groups, agents, rules, in_rules = [], [], [], False
+    for raw in lines:
+        line = raw.split("#", 1)[0].strip()
+        if ":" not in line:
+            continue
+        field, value = (x.strip() for x in line.split(":", 1))
+        field = field.lower()
+        if field == "user-agent":
+            if in_rules:
+                groups.append((agents, rules))
+                agents, rules, in_rules = [], [], False
+            agents.append(value.lower())
+        elif agents:
+            in_rules = True
+            if field in ("allow", "disallow"):
+                rules.append((field == "allow", value))
+    if agents:
+        groups.append((agents, rules))
+    t = token.lower()
+    specific = [r for a, r in groups if any(x != "*" and x in t for x in a)]
+    chosen = specific or [r for a, r in groups if "*" in a]
+    return [rule for rs in chosen for rule in rs]
+
+
+def _robots_rule(pattern):
+    anchored = pattern.endswith("$")
+    body = pattern[:-1] if anchored else pattern
+    return re.compile("".join(".*" if c == "*" else re.escape(c) for c in body) + ("$" if anchored else ""))
+
+
+def strict_disallowed(rules, url):
+    """Longest matching rule wins; Allow wins a tie; an empty Disallow allows all."""
+    if not rules:
+        return False
+    u = urllib.parse.urlsplit(url)
+    path = (u.path or "/") + ("?" + u.query if u.query else "")
+    best = None
+    for allow, pattern in rules:
+        if pattern and _robots_rule(pattern).match(path):
+            key = (len(pattern), allow)
+            best = key if best is None or key > best else best
+    return best is not None and not best[1]
+
+
 def robots_check(url, sleep=time.sleep, clock=time.monotonic):
     u = checked(url)
     parser, delay = robots_policy(u.hostname)
-    if not parser.can_fetch(AGENT, url):
+    if not parser.can_fetch(AGENT, url) or strict_disallowed(getattr(parser, "strict_rules", None), url):
         raise Held("robots restriction")
     if delay:
         cap = CRAWL_DELAY_REVIEWED.get(u.hostname)
