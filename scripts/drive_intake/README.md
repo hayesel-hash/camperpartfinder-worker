@@ -54,3 +54,12 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
 - Distributor catalogues (Trailer Enterprises sections, Berger, Vecam, Euro Accessoires, Moog) list other makers'
   numbers against their own: hold them for the third-party tier decision unless the maker of the part itself
   states the replacement.
+
+## Conversion kits (relation `replaces_with_kit`, claim kind `conversion_kit_replacement`)
+Approved by Larry, 26 Nov 2026 23:15. Use when a maker says its part/unit replaces another only
+together with an adapter / conversion / retrofit kit, or its product is itself a retrofit kit.
+Stage in `aftermarket_assertions_v1` with `qualifiers.kit_parts` (array of {maker, number[, description]})
+and `qualifiers.conditions` (installation conditions); the replacement maker must be the publisher.
+Publisher: `rv_private.publish_conversion_kit_replacements_v1()` (cron every 10 min). Claims always
+carry `requires_conversion_kit`, `not_a_direct_swap`, the kit parts and the conditions.
+First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-section kits (9, reclassified).
