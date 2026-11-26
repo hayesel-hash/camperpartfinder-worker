@@ -15,6 +15,10 @@ def main(pdf, drive_id, drive_title, out_dir):
     raw = open(pdf, "rb").read()
     sha = hashlib.sha256(raw).hexdigest()
     doc = pymupdf.open(pdf)
+    part = re.search(r" - pp (\d{3})-(\d{3})", drive_title)
+    first_page = int(part.group(1)) if part else 1
+    if first_page > 1:
+        ab.first_content_page = lambda d: 0   # later parts of a split book start mid-book: no cover/TOC
     start = ab.first_content_page(doc)
     rows = ab.parse(doc)
     words = ab.numbers_by_words(doc)
@@ -38,6 +42,8 @@ def main(pdf, drive_id, drive_title, out_dir):
                 residual += 1
     title = re.sub(r"\.pdf$", "", drive_title)
     title = re.sub(r"^Airstream\s+", "", title)
+    if part:
+        title = re.sub(r"\s+-\s+pp (\d{3})-(\d{3})$", r" (pp \1-\2)", title)
     secs = sorted({r["section"] for r in rows}); code = {s: format(i, "x") for i, s in enumerate(secs)}
     seen, lines = set(), []
     for r in rows:
@@ -48,8 +54,8 @@ def main(pdf, drive_id, drive_title, out_dir):
         lines.append(f"{r['page']}|{r['n']}|{r['number']}|{d}|{code[r['section']]}")
     gates = {
         "two_passes_agree": only_w == 0 and only_t == 0,
-        "enough_rows": len(rows) >= 30,
-        "text_layer": chars > 2000,
+        "enough_rows": len(rows) >= (10 if part else 30),
+        "text_layer": chars > min(2000, 250 * max(1, doc.page_count - start)),   # short split parts: scale by page count
         "start_page_sane": start <= 15,
         "residual_ok": residual <= max(3, len(rows) // 50),
     }
@@ -57,7 +63,8 @@ def main(pdf, drive_id, drive_title, out_dir):
     out = {
         "doc": sha, "title": title, "pages": doc.page_count, "drive_id": drive_id,
         "review_state": "reviewed" if ok else "unreviewed",
-        "extraction": f"airstream-partsbook-v2: text-line pass; TOC-detected start page (PDF p{start + 1}); internal laminate codes containing & excluded",
+        "extraction": (f"airstream-partsbook-v2: text-line pass; TOC-detected start page (PDF p{start + 1}); internal laminate codes containing & excluded"
+                       + (f"; split part supplied by Larry's ChatGPT: PDF page n here is page {first_page - 1}+n of the full book" if part else "")),
         "verification": (f"automated gates: independent word-position pass agrees ({len(rows)} rows, {len(seen)} numbers, "
                          f"{only_w + only_t} discrepancies, {len(benign_w)} numbers printed without a description omitted); {residual} unmatched number-like lines; same template as the "
                          f"2027 Trade Wind and Interstate 19X books, which were checked against page images row by row"),
