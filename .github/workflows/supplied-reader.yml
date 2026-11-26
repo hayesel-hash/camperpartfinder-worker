@@ -3,10 +3,9 @@ name: Supplied reader (maker documents from published download links)
 # limit) from the publisher's own download links, extracts them with scripts/supplied/ and
 # stages the result through rv-supplied-gateway. Publication happens in the database only when
 # every automated gate passed. One document at a time; robots and host allowlist enforced.
+# Schedule removed 26 Nov 2026: a-us.storyblok.com answers this worker with 403; queue held, not bypassed.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '23,53 * * * *'
   push:
     branches: [main]
     paths:
