@@ -1,0 +1,35 @@
+name: Aftermarket cross-reference charts
+# Lane 2: reads aftermarket makers' own "OEM part -> our part" charts and
+# stages them (scripts/aftermarket_xref.py). Never publishes: the database
+# publisher links a row only after the page is reviewed and the exact OEM
+# number exists under the brand the page names. Separate from the extraction
+# factory and its dispatcher.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 6 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/aftermarket-xref.yml'
+      - 'scripts/aftermarket_xref.py'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: aftermarket-xref
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned PDF library (needed by the shared fetch policy)
+        run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5
+      - name: Self-test
+        run: python3 scripts/aftermarket_xref.py --self-test
+      - name: Stage cross-reference charts
+        run: python3 scripts/aftermarket_xref.py
