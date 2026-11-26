@@ -203,10 +203,23 @@ def _split_oem(value):
     return m.group(1).upper(), rest or None
 
 
+CAVEAT = re.compile(r"(?i)\bnote\b|guid|must look|recommend|will not work|for (?:better )?accuracy")
+
+
+def _is_sentence(text):
+    """Prose inside a table cell (a caveat or caption), not a part entry."""
+    return len(text.split()) >= 6 and not re.search(r"\d{5,}\s*\|", text)
+
+
 def extract(html, page_name):
     """Pure function: chart HTML -> (rows, notes). Covered by tests."""
     tables, notes = parse_tables(html)
-    caveats = [n for n in notes if re.search(r"(?i)\bnote\b|guid|must look|recommend", n)]
+    # Caveats may sit outside the tables or, on the live pages, inside table cells.
+    cell_prose = [c for t in tables for r in t for c in r if _is_sentence(c)]
+    caveats = []
+    for n in notes + cell_prose:
+        if CAVEAT.search(n) and n not in caveats:
+            caveats.append(n)
     out = []
     for ti, table in enumerate(tables):
         hi, roles = _header_index(table)
@@ -223,8 +236,8 @@ def extract(html, page_name):
                 cells = row + [""] * (max(g["oem"], *(j for j, _ in g["dino"])) + 1 - len(row))
                 oem_text = cells[g["oem"]]
                 dino_cells = [(cells[j], label) for j, label in g["dino"]]
-                if not oem_text:
-                    continue
+                if not oem_text or (_is_sentence(oem_text) and not any(d for d, _ in dino_cells)):
+                    continue   # empty cell, or a caption/caveat sentence inside the table
                 row_text = " | ".join(c for c in [oem_text] + [d for d, _ in dino_cells] if c)
                 key = f"t{ti}r{ri}g{gi}"
                 if g["kind"] == "model":
@@ -327,7 +340,7 @@ def run():
         rows, caveats = extract(html, name)
         result = gateway("stage", {"page": {"source_id": source_id, "url": url, "sha256": sha,
                                             "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                                            "html": html, "parser": "aftermarket-xref-v1"},
+                                            "html": html, "parser": "aftermarket-xref-v2"},
                                    "page_rows": rows}, jwt)
         counts = {}
         for row in rows:

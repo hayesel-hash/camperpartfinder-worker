@@ -62,6 +62,47 @@ ONAN = """<table border=1>
 <p>You must look at the board, you are replacing to get the correct part number.</p>"""
 
 
+# Live pages (26 Nov 2026) are Excel exports: caveats sit in merged cells of
+# the same table as the data, above the header or below the last row, and a
+# caveat can be split across two rows.
+EXCEL_DOMETIC = """<table x:str><col width=120>
+ <tr><td colspan=2>Refrigerator Board Replacements</td><td></td><td></td></tr>
+ <tr><td colspan=4>These charts are for guidence only. We highly recommend that you get the exact board
+  number that is installed in the</td></tr>
+ <tr><td colspan=3>refrigerator for better accuracy when replacing boards in Dometic&reg; refrigerators!</td></tr>
+ <tr><td>Dometic&reg; Part #</td><td>Dinosaur #</td><td>Dometic&reg; Part #</td><td>Dinosaur #</td></tr>
+ <tr><td>3850712-01</td><td>3850712.01</td><td>4980557-00</td><td>Micro P1338 Rev 5</td></tr>
+ <tr><td colspan=4>Table 2: Replacements for black box boards by board model number</td></tr>
+ <![if supportMisalignedColumns]><tr height=0 style='display:none'><td width=120></td></tr><![endif]>
+</table>"""
+
+EXCEL_ONAN = """<table x:str>
+ <tr><td>Onan &reg; Part #</td><td>Dinosaur #</td></tr>
+ <tr><td class=xl32>300-5268</td><td class=xl33>300-3763</td></tr>
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td colspan=2 class=xl27>You must look at the board, you are replacing to get the correct part number.</td></tr>
+</table>"""
+
+
+class LiveLayout(unittest.TestCase):
+    def test_caveats_inside_table_cells_travel_with_rows(self):
+        rows, caveats = ax.extract(EXCEL_DOMETIC, "Dom_Chart.htm")
+        r = by(rows, oem_number="3850712-01")[0]
+        text = " ".join(r["qualifiers"]["page_caveats"])
+        self.assertIn("guidence only", text)
+        self.assertIn("for better accuracy", text)
+        rows, caveats = ax.extract(EXCEL_ONAN, "Msc_Chart.htm")
+        (r,) = by(rows, oem_number="300-5268")
+        self.assertIn("must look at the board", " ".join(r["qualifiers"]["page_caveats"]))
+
+    def test_captions_and_caveats_are_not_staged_as_rows(self):
+        for html, name in ((EXCEL_DOMETIC, "Dom_Chart.htm"), (EXCEL_ONAN, "Msc_Chart.htm")):
+            rows, _ = ax.extract(html, name)
+            self.assertFalse([r for r in rows if r["oem_number"] is None and r["relation"] == "replaces"])
+        rows, _ = ax.extract(EXCEL_DOMETIC, "Dom_Chart.htm")
+        self.assertEqual(sorted(r["oem_number"] for r in rows), ["3850712-01", "4980557-00"])
+
+
 def by(rows, **kw):
     return [r for r in rows if all(r.get(k) == v for k, v in kw.items())]
 
