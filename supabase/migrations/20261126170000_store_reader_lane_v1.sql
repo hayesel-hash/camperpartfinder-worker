@@ -213,7 +213,7 @@ begin
     select id into pid from rv_private.parts where manufacturer_id = mid and exact_number = upper(r.sku) and variant = '';
     if pid is null then
       insert into rv_private.parts(manufacturer_id, exact_number, variant, name, category, state)
-      values (mid, upper(r.sku), '', left(btrim(r.name), 200),
+      values (mid, upper(r.sku), '', left(btrim(regexp_replace(r.name, '\s*#\s*'||r.sku||'\s*$', '', 'i')), 200),
               case when r.name ~* 'awning|slide topper|canopy' then 'external_equipment'
                    when r.name ~* 'axle|suspension|hanger|equalizer|leaf spring|brake|hub|bearing|tire|wheel|coupler|hitch|jack|landing gear|stabili' then 'running_gear'
                    when r.name ~* 'window|door|entry|lock|latch|screen|vent cover' then 'windows_doors'
