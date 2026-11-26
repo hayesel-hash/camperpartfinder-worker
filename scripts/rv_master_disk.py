@@ -25,7 +25,10 @@ DISK_RESERVE = 2 * 1024**3
 
 def disk_capacity(dest):
     return max(0, shutil.disk_usage(dest.parent).free - DISK_RESERVE)
-AGENT = "RVPartFinder"
+AGENT = "RVPartFinder"  # robots.txt token: rules naming RVPartFinder still apply
+# Sent on the wire in the standard crawler format (as Googlebot etc. do), with a contact link.
+# Some sites' firewalls answer a bare product name with 404 even where robots.txt allows the path.
+HTTP_AGENT = "Mozilla/5.0 (compatible; RVPartFinder/1.0; +https://github.com/hayesel-hash/camperpartfinder-worker)"
 CODE = re.compile(r"(?<![A-Z0-9-])\d{5}(?:-\d{2}[A-Z0-9]|[A-Z]\d{2}[A-Z0-9])(?![A-Z0-9-])")
 SKU = re.compile(r"\d{3}/\d{3}(?:-\d{1,3})?")
 NUMBER = re.compile(r"[A-Z0-9][A-Z0-9 /.-]{2,30}", re.I)
@@ -98,7 +101,7 @@ def checked(url):
 
 def open_source(url):
     checked(url)
-    return OPENER.open(urllib.request.Request(url, headers={"User-Agent": AGENT}), timeout=120)
+    return OPENER.open(urllib.request.Request(url, headers={"User-Agent": HTTP_AGENT}), timeout=120)
 
 
 ROBOTS_CACHE = {}

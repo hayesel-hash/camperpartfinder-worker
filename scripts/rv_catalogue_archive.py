@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pymupdf  # noqa: E402
 from rv_master_disk import (  # noqa: E402
-    AGENT, OPENER, Held, authorize_job_origin, checked, disk_capacity, open_catalogue,
+    HTTP_AGENT, OPENER, Held, authorize_job_origin, checked, disk_capacity, open_catalogue,
 )
 
 GATEWAY = "https://dlijhukwzlqwtmiynncg.supabase.co/functions/v1/rv-catalogue-archive-gateway"
@@ -63,7 +63,7 @@ def fetch_pdf(url, dest, etag=None, last_modified=None):
 
     def opener(u):
         checked(u)
-        return OPENER.open(urllib.request.Request(u, headers={"User-Agent": AGENT, **extra}), timeout=180)
+        return OPENER.open(urllib.request.Request(u, headers={"User-Agent": HTTP_AGENT, **extra}), timeout=180)
 
     digest = hashlib.sha256()
     total = 0
