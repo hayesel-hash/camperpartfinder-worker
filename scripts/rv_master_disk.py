@@ -57,6 +57,8 @@ CDN_ORIGINS = {
 HOSTS.update(["www.thule.com","www.lippert.com","www.truma.com","www.remis.de","www.jokon.de","indespension.co.uk","www.maypoleltd.com","www.camperpassie.nl","www.hofmei.de","www.atb-service.de","www.fra.it","www.austrv.com.au","www.cmccampershop.co.uk","www.osculati.com","mql.co.uk","www.comet-pumpen.de","www.alde.co.uk","roadmasterinc.com","www.roadmasterinc.com"])
 # Aftermarket lane: the maker's own cross-reference charts. Approved by Larry, 26 Nov 2026.
 HOSTS.add("www.dinosaurelectronics.com")
+# Dexter's own axle SKU harmonisation cross-reference (legacy -> standard SKU). Approved by Larry, 26 Nov 2026.
+HOSTS.add("dexterindex.com")
 # Dynamic origins are scoped to a specific job returned by our authenticated
 # Supabase gateway, never to arbitrary HTML links encountered while crawling.
 ACTIVE_SOURCE_HOSTS = set()
