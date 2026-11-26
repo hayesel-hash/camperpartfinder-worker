@@ -1,0 +1,32 @@
+name: Supplied reader (maker documents from published download links)
+# Fetches queued maker documents (first: Airstream parts books over the Drive connector's 10 MB
+# limit) from the publisher's own download links, extracts them with scripts/supplied/ and
+# stages the result through rv-supplied-gateway. Publication happens in the database only when
+# every automated gate passed. One document at a time; robots and host allowlist enforced.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23,53 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/supplied-reader.yml'
+      - 'scripts/supplied/**'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: supplied-reader
+  cancel-in-progress: false
+jobs:
+  read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned PDF library
+        run: python3 -m pip install --disable-pip-version-check PyMuPDF==1.26.5
+      - name: Read queued documents
+        run: python3 scripts/supplied/supplied_reader.py
