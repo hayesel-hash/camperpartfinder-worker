@@ -6,7 +6,8 @@ Pass A: text-line order (a Part # line opens a row; description lines follow unt
 comma-separated model codes such as "FWH09A, FWH09A-AM,"). Pass B: word boxes by header column; description and
 model words are attached to the nearest part number by vertical position (model cells are vertically centred and
 may start above the number line). "N/A" part numbers are not parts and are skipped. The model cell is kept as
-" [models: ...]" after the description, as printed.
+" [models: ...]" after the description, as printed; a Model cell reading "All" (Girard GSWH-2 CCD-0009390, cells
+vertically centred over a callout group) is dropped.
 usage: python3 -I lci_ccd_model_list.py <pdf> <out.json>"""
 import hashlib, json, re, sys
 import pymupdf
@@ -25,7 +26,8 @@ def header(L):
 
 
 def models_text(ms):
-    toks = [t.strip(" ,") for m in ms for t in m.split(",") if t.strip(" ,")]
+    # "All" (Girard GSWH-2 CCD-0009390) means every model: nothing to qualify, so it is not kept
+    toks = [t.strip(" ,") for m in ms for t in m.split(",") if t.strip(" ,") and t.strip(" ,") != "All"]
     return " [models: " + ", ".join(toks) + "]" if toks else ""
 
 
@@ -42,7 +44,9 @@ def pass_a(page):
             while j < len(L) and not PN.match(L[j]) and not STOP.match(L[j]) and L[j] != "N/A":
                 if CALL.match(L[j]) and j + 1 < len(L) and (PN.match(L[j + 1]) or L[j + 1] == "N/A"):
                     break
-                if MODEL_LINE.match(L[j]):
+                if CALL.match(L[j]) and j + 1 < len(L) and CALL.match(L[j + 1]):
+                    break  # run of exploded-view callout letters printed after the table
+                if MODEL_LINE.match(L[j]) or L[j] == "All":
                     mods.append(L[j])
                 elif not mods:
                     desc.append(L[j])

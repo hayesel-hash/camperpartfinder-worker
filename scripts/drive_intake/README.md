@@ -281,3 +281,32 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
 - Norcold N1095 (624870) is copy-protected -> skipped. N2090, N2152 and 2118 PolarMax were claimed and released
   unprocessed with layout notes (NO. | PART # | DESCRIPTION | X model columns; vertically centred numbers; SUPERSEDED TO
   notes; shaded = NOT AVAILABLE); 105 of their 267 numbers are already Norcold parts.
+- 27 Nov ~08:20 run (session_017XuwiMgNdUE7HhicEwjo7T): no new PDFs in Drive since 06:55. 23 files: Truma 5 (3 done, 2 held),
+  Eberspächer 5 (3 done, 2 held), Dometic SeaLand 4 (partly published, held for rotated sheets), Girard / Girard Lippert 7 done.
+  884 new parts (Truma 64, Eberspächer 164, SeaLand 463, Lippert/Girard 189), ~800 existing parts evidenced, 4 Truma
+  supersessions. Manufacturer `Eberspächer` added (brand aliases Eberspaecher / Eberspacher / upper case).
+  - "Truma - Caravan Heating and Water System Spare Parts Catalogue" (2 splits, camperlands.co.uk copy) prints Truma No. |
+    Grove No. on every table -> held with the distributors, like the AL-KO / Grove list.
+  - The Truma Dealer Catalog 2025 was already loaded (source `truma-dealer-2025-reviewed`, selected tables); that load had
+    merged page 5's old/new columns into names ("Truma CP plus 36023-01 Truma CP plus") -> 6 names corrected with
+    `name_correction` audit events; the page's "Discontinued with replacement" table went to the legacy-map v2 lane.
+  - `scripts/aftermarket_pdf/truma_dealer_catalogue.py` — Truma Dealer Catalog 2025: part number in the Part No. column + bold
+    product name on the same baseline (pymupdf spans vs pdfplumber words with font names); "Changes to our product portfolio"
+    page -> `supersessions` / `discontinued`.
+  - `scripts/aftermarket_pdf/truma_parts_viewer.py` — Truma dealer parts-viewer printouts (Pos. | No. | Description |
+    Information; number wrapped in its cell "60030-" / "88700", rows broken across pages; row bands from the drawn rules;
+    placeholder 00000-00001 skipped). First use: Mover SR from 09/2011.
+  - `scripts/aftermarket_pdf/eberspacher_spare_parts_list.py` — Eberspaecher SPARE PARTS LIST (Airtronic S3/M3, Airtronic 2 NA):
+    number -> designation block of its item starting at or above it ("Blower 24 V ..." starts on the first 24 V number);
+    pdfplumber lower-cases some UniversNext capitals ("order", "m3") -> rows compared case-folded; size/variant-line numbers
+    ("Ø 90 mm") and numbers under two designations not loaded. Still held: Espar Airtronic D2/D4 manual (numbers printed with
+    spaces "25 2069 99 06 00": needs a number-format decision) and the 2022 NA catalogue (heading + variant-line layout).
+  - `scripts/aftermarket_pdf/dometic_sealand_parts_list.py` (+ `sealand_colour_conflicts.py`) — SeaLand guide: 9-digit number +
+    description on one baseline (dash lines and ruled tables alike); right-hand table ITEM numbers between a description and
+    the next number dropped; sheets printed rotated on the page skipped (~600 numbers across the 4 splits wait for a rotated-
+    sheet extension: transform word boxes by the line direction); 18 numbers printed with different colours on different
+    sheets not loaded. Model index pages (Model | Description | Item | Ref. List #) not read yet.
+  - `scripts/aftermarket_pdf/lci_component_chart.py` — Lippert/Girard component charts without Quantity/Model columns
+    (pymupdf find_tables vs pdfplumber extract_tables; colour part-number columns; header-less continuation tables).
+    `lci_ccd_model_list.py` extended: "All" model cells dropped, callout-letter runs end a description (Girard GSWH-2).
+  - Tests: `tests/test_drive_intake_mgnd_readers.py`.
