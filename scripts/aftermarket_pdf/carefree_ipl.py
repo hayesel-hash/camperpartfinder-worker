@@ -30,6 +30,10 @@ def header(words):
         if "Part" in t and "Number" in t and "Description" in t and "Notes" in t:
             return {"item": t.get("Item", t["Part"] - 45), "number": t["Part"] - 15, "desc_start": t["Part"] + 60,
                     "notes": t["Notes"] - 60, "refs": t["Notes"] + 5, "y": y}
+        if "Item" in t and "Part" in t and "Number" in t and "Description" in t:
+            # President's Club parts books: Item | Part Number | Description, no Notes column
+            return {"item": t["Item"], "number": t["Part"] - 15, "desc_start": t["Part"] + 60,
+                    "notes": 10_000, "refs": 10_000, "y": y}
     return None
 
 

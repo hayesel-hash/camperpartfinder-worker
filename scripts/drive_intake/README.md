@@ -56,6 +56,30 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   Description / Notes). Pass A dict-layer line cells, pass B word boxes merged into cells; order templates (`3nn`,
   `xx`, `XX`/`XXX` colour codes) skipped and counted (test: `tests/test_carefree_ipl.py`). Output is a
   supplied-documents drop (source `carefree-ipl-drive-supplied`). Scanned Carefree lists still need OCR.
+  Also reads President's Club parts-book tables with no Notes column (Item / Part Number / Description).
+- `scripts/aftermarket_pdf/alde_service_parts.py` — Alde boiler service manuals: "EXPLODED DRAWING" and "SPARE PARTS"
+  pages only ("<callout>. NNNN NNN <description>", two numbers per callout allowed). Pass A text lines, pass B word
+  boxes by baseline. Alde prints "3020 011"; the drop stores "3020011" (the supplied lane allows no spaces)
+  (test: `tests/test_alde_service_parts.py`, source `alde-service-manuals-drive-supplied`).
+- `scripts/aftermarket_pdf/atwood_part_reference.py` — Atwood 2007 service manual "hydro flame Furnace REPLACEMENT PART
+  REFERENCE" pages ("NNNNN description" + model-column check marks; bold section headings kept as the row section;
+  NLA / while-supplies-last glyphs turned into words). Optional page range argument. Only rows on which both passes
+  give the same number and description are kept; the rest are reported as held
+  (test: `tests/test_atwood_part_reference.py`, source `atwood-2007-rv-appliance-service-parts-manual`, publisher
+  Dometic per the Atwood alias).
+
+## Drop mechanics (learned 27 Nov)
+- `supplied_document_rows_v1.number` must match `^[A-Za-z0-9][A-Za-z0-9./-]{1,39}$` (no spaces).
+- `supplied_drops_v1.url` must be the `.../supplied-drops/<name>.b64` branch URL; when re-pushing a corrected drop
+  under the same name, check that raw.githubusercontent.com already serves the new bytes before re-queueing.
+- The publisher name must exist in `rv_private.manufacturers` (Alde was added 27 Nov).
+
+## More distributor catalogues (held for the third-party tier decision)
+- Fritz Berger Ersatzteil-Katalog 2017-2018 (all 8 splits): Berger-Nr. against FIAMMA-Nr. / Thetford-Nr. /
+  Hersteller-Nr.
+- Coast to Coast RV Caravan and Leisure Catalogue 2026 (Australian distributor stock numbers such as 200-04802).
+- Multi-layout catalogues held for dedicated readers: AL-KO Australia Vehicle Technology Comprehensive Catalogue 2020
+  (3 splits, ~25 table layouts) and the Atwood 2007 manual's water-heater / range matrices and jack / coupler pages.
 
 ## Notes from scheduled runs
 - Each "Verified - ..." subfolder of the 200 Catalogue Intake has a `source.txt` (original URL, page count,

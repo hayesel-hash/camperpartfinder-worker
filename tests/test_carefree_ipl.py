@@ -39,5 +39,22 @@ class CarefreeIplTest(unittest.TestCase):
         self.assertEqual(self.by["030573"], "Slider Set Screw")
 
 
+class CarefreeNoNotesColumnTest(unittest.TestCase):
+    """President's Club parts book page 3 (Item | Part Number | Description, no Notes column), 27 Nov 2026."""
+
+    def setUp(self):
+        fx = json.load(open(os.path.join(HERE, "fixtures", "carefree_hardware_book_p3_positions.json")))
+        pages = [([(tuple(b), t) for b, t in p["dict_lines"]], [tuple(w) for w in p["words"]]) for p in fx["pages"]]
+        self.rows, self.diffs, _ = c.read(pages)
+        self.by = {num: desc for _, _, num, desc in self.rows}
+
+    def test_table_without_notes_column_is_read(self):
+        self.assertEqual(self.diffs, [])
+        self.assertEqual(self.by["041006"], "Polycord, 5/32\u201d (per foot)")
+        self.assertEqual(self.by["901044W"], "Pull Strap Catch \u2013 White pkg of 2")
+        self.assertEqual(self.by["R030307-001-MP"], "Moly Rivet pkg of 50")
+        self.assertNotIn("--", self.by)
+
+
 if __name__ == "__main__":
     unittest.main()
