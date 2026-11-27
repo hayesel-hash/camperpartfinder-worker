@@ -75,3 +75,23 @@ def test_model_matrix_notes_and_options():
             " [applies to: 57915.(X)(X)(X)(X)]") in rows
     assert ("note", "NOTE (shroud / shroud screws)",
             "Closed End Shroud (Gray) [*Closed End Shroud can not be painted.]", "3308084.023", "") in rows
+
+
+def test_option_tables_component_box_and_two_column_table():
+    import dometic_option_tables as O
+
+    def w(x, y, t):
+        return (x, y - 10, x + 6 * len(t), y, t)
+    comp = [w(388, 169, "Component"), w(474, 169, "Description"), w(315, 170, "3102888.009"),
+            w(388, 181, "3106615.002"), w(474, 181, "Box"), w(494, 181, "asm.,"), w(522, 181, "complete"),
+            w(80, 187, "Decal,"), w(388, 193, "3106463.007"), w(474, 193, "Comfort"), w(513, 193, "center")]
+    assert O.read_words(comp) == [("component", "Box asm., complete", "3106615.002", ""),
+                                  ("component", "Comfort center", "3106463.007", "")]
+    cols = [w(150, 90, "Description"), w(320, 90, "Part"), w(345, 90, "No."), w(410, 90, "Part"), w(435, 90, "No."),
+            w(319, 100, "3106615.002"), w(409, 100, "3106615.010"),
+            w(100, 112, "C1"), w(130, 112, "Box,"), w(160, 112, "asm."), w(185, 112, "air"),
+            w(319, 112, "3101390.056"), w(410, 112, "3105908.010"),
+            w(140, 122, "D3"), w(160, 122, "Filter"), w(319, 122, "3100281.009"), w(410, 122, "3100281.009")]
+    assert O.read_words(cols) == [("columns", "Box, asm. air", "3101390.056", " [for 3106615.002]"),
+                                  ("columns", "Box, asm. air", "3105908.010", " [for 3106615.010]"),
+                                  ("columns", "Filter", "3100281.009", "")]
