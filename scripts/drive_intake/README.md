@@ -257,9 +257,11 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   `skf_interchange.py` (dotted-leader "Mfr no. | Mfr. | Part no." index, any page), `wfco_crossref_sheet.py`
   (pdfplumber vs pymupdf words over the same table geometry; WF-5220/5320 pairs, "/" shorthand, broken numbers and
   continuation lines printed in the WFCO column are held). Helper tests: `tests/test_batch2_xref_readers.py`.
-- 27 Nov ~07:50 run (session_017XuwiLc3tgwP1DWnddbwAz): no new PDFs in Drive since 06:55. 18 files: Norcold 7 (5 done,
+- 27 Nov ~07:50 run (session_017XuwiLc3tgwP1DWnddbwAz): no new PDFs in Drive since 06:55. 24 files: Norcold 7 (5 done,
   N41/N51 623424 and N61/N81 623421 copy-protected -> skipped), Dometic Seitz 6 done, Suburban 5 (4 done, water-heater
-  service manual held: Paper Capture OCR layer with errors). 476 new parts, 31 Norcold supersession claims.
+  service manual held: Paper Capture OCR layer with errors), small Dometic families 6 (RM2553 and CT3000 Australia with
+  dometic_spare_parts_list.py, B3200 3253.332C and Duo-Therm 6206xx.33(X) with dometic_parts_list.py; 59516 Brisk Air list
+  held: private font; CAL61/CAL136 held: 4 of 7 pages are scans). 507 new parts, 31 Norcold supersession claims.
   - `scripts/aftermarket_pdf/norcold_parts_list.py` — Norcold / Thetford-NA refrigerator lists (NO. | PART # | DESCRIPTION |
     model columns [| WARRANTABLE]). The legend differs between lists and even between pages of one list (2118 p7: "*" = not
     available, grey = no longer available; other pages "*" = limited availability, grey = not available) -> read per page;
