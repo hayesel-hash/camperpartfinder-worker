@@ -734,3 +734,28 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     Reference / Code / REF cell is a Euro Accessoires 9xxxxx stock number. Pennine & BCA 5th edition (4 splits) re-held: "<CODE> -
     <description>" blocks where maker codes (Whale ES1000 / AK1400 ...) carry no printed maker name; p5 "DRM5380 - Dometic Fridge -
     Replaces RM42381L" is a distributor-stated same-maker model replacement (lane decision for Larry).
+- 27 Nov ~15:19 run (session_017XuwiNEQCbi6aH8eAYRskx): no new PDFs or CSVs in Drive since 12:57. Michael's folder: messages 09 (Michael's
+  ChatGPT: Valeryd brake-shoe web page, references not tied to brands) and 10 (Michael's Claude: Thetford Aqua-Magic kit sheet 42109 and
+  Aqua Magic IV SPL checked, no rows) answered with 11 and 12 (12 asks for both Thetford PDFs to be uploaded: 42002 / 42006 are not in
+  the DB). README in that folder updated by Larry at 15:20: PDFs first, score = rows published. The last 7 `new` files (all
+  priority-70 distributor catalogues) processed: 4 done, 3 held (2 partly published). 32 new parts (Whale 14, CAN 18), no cross-maker
+  links (none of the 7 makes a maker-to-maker statement). Manufacturers `Whale` and `CAN` added. **The register has no `new` files left.**
+  - Moog Trailer Parts 2024 (2 splits) done, nothing to load: Moog says "Wir verkaufen Qualitaetsprodukte" (a seller), every Art.-Nr.
+    (50.837-00) is its stock number, and every maker reference is an axle / brake / coupling TYPE (p15 brake-shoe sets "usable for"
+    ALKO 1637, KNOTT 20-2425/1, BPW S2005-7RASK with drum sizes = fitment). Vecam 2015 (2 splits) done, nothing to load: only Vecam
+    R-codes on exploded drawings ("I ricambi senza riferimento non sono fornibili").
+  - `scripts/aftermarket_pdf/grassroutes_maker_tiles.py` — Grassroutes Leisure trade catalogue product tiles: bold black heading
+    "<MAKER> <number>" (optionally + product words with `--name-words`), regular description lines in the same column, bold GREEN
+    Grassroutes code closing the tile (never a part). Pass A pymupdf spans vs pass B pdfplumber chars; gaps measured bottom to bottom
+    because pdfplumber glyph tops sit ~3 pt below pymupdf line tops (top-based gaps made the passes disagree on CAN paragraph breaks).
+    Holds: no description, one maker number over several variant stock codes, headings with two numbers (FL1323/FL1324), numbers with two
+    descriptions (CAN FC1345 is printed for a hob on p18 and an oven on p21). Drops b3ef1cac0583cae1 (Whale, split pp 075-148) and
+    882a62f83d4f0057 (CAN, split pp 038-074); sources `grassroutes-trade-catalogue-{whale,can}-drive-supplied`. Still held for per-row
+    maker support: Sargent 9, Propex 3, Autosound 2 (pp 075-148), Vitrifrigo 15 (pp 038-074). Split pp 001-037 done (Grassroutes codes,
+    one Baldacci tile). Test: `tests/test_grassroutes_maker_tiles.py`.
+  - **Drop keys now stay in the database.** Printing a local key file to paste it into SQL was refused by the session's permission
+    check, so this run created the key server-side (`insert into rv_private.supplied_drop_keys_v1 values (id,
+    encode(extensions.gen_random_bytes(32),'hex'))`) and let the database encrypt the drop JSON: `with p as (select convert_to($j$<json>$j$,
+    'UTF8') plain) ... select replace(encode(iv || extensions.encrypt_iv(plain, key, iv, 'aes-cbc/pad:pkcs'),'base64'), E'\n','')`, with a
+    round-trip `decrypt_iv(...) = plain` check and the local JSON's SHA-256 compared with `sha256(plain)`. The base64 is written to
+    `<sha16>.b64` on the supplied-drops branch as before (key id `drops-2026-11-27-intake-nedr`). Same format, so ingest is unchanged.
