@@ -4,8 +4,11 @@ Brisk Air 579 series parts list 3308714.025: Index | Description | Part No. | on
 discontinue date, "8/25/03##" = start date, per the legend "** Designates Discontinue Date / ## Designates Start
 Date"). Sub-items such as "A1 Overload" carry their own index. "SEE NOTE n" rows have no number and are skipped.
 
-Only the main matrix is read. The NOTE blocks and the "Customer Options" tables (two number columns) are listed
-in "unread" (every Dometic-style number on the page that is not a matrix row).
+The NOTE blocks ("Open End Shroud (Shell White) 3108239.009", "Screw, Open End Shroud 313685.001 (Qty. 12)") and the
+"Customer Options (Required / Not Required)" tables (Description | number per unit family, "----" = not offered) under
+the matrix are read by notes_and_options(): pass A pymupdf words, pass B pdfplumber words, both grouped by baseline
+and split at the options table's left edge; kept only when both give the same rows. Any other Dometic-style number
+on a matrix page is listed in "unread".
 
 Pass A: text lines in content order: [index] description, number (or SEE NOTE), one line per model column, [date].
 Pass B: word boxes by baseline; columns from the header words (Description, Part No.) and the rotated model labels
@@ -119,6 +122,68 @@ def pass_b(words, cols):
     return rows
 
 
+def _lines(words):
+    out, cur = [], None
+    for w in sorted(words, key=lambda w: (w[3], w[0])):
+        if cur is None or w[3] - cur[0] > 1.5:
+            cur = [w[3], []]; out.append(cur)
+        cur[1].append(w)
+    return [sorted(l, key=lambda w: w[0]) for _, l in out]
+
+
+def notes_and_options(words):
+    """words: (x0, y0, x1, y1, text) -> rows [(kind, section, description, number, applies)]"""
+    head = next((w for w in words if w[4] == "Customer"), None)
+    if head is None:
+        return []
+    x_opt = head[0] - 4
+    fam = sorted((w for w in words if abs(w[3] - head[3]) < 2 and w[0] > head[0] and "(X)" in w[4]), key=lambda w: w[0])
+    if len(fam) != 2:
+        return []
+    xc = [f[0] - 4 for f in fam]
+    rows, section, footnote = [], None, None
+    lines = _lines([w for w in words if w[1] > head[1] - 3])
+    for ln in lines:
+        left = [w for w in ln if w[0] < x_opt]
+        right = [w for w in ln if w[0] >= x_opt]
+        t = " ".join(w[4] for w in left)
+        if t.startswith("*") and "can not be painted" in t:
+            footnote = norm(t.lstrip("*"))
+        elif left:
+            nums = [w for w in left if NUM.match(w[4])]
+            if len(nums) == 1:
+                i = left.index(nums[0])
+                desc = [w[4] for w in left[:i] if not re.fullmatch(r"NOTE|\d:", w[4])]
+                tail = norm(" ".join(w[4] for w in left[i + 1:]))
+                rows.append(["note", "NOTE", norm(" ".join(desc)), nums[0][4], tail])
+        if right:
+            rt = " ".join(w[4] for w in right)
+            if rt.startswith("Customer Options"):
+                section = norm(" ".join(w[4] for w in right if "(X)" not in w[4]))
+                continue
+            desc = norm(" ".join(w[4] for w in right if w[0] < xc[0]))
+            c1 = [w[4] for w in right if xc[0] <= w[0] < xc[1]]
+            c2 = [w[4] for w in right if w[0] >= xc[1]]
+            cells = [c[0] if len(c) == 1 else None for c in (c1, c2)]
+            if desc and any(c and NUM.match(c) for c in cells):
+                for k, c in enumerate(cells):
+                    if c and NUM.match(c):
+                        rows.append(["option", section, desc, c, fam[k][4]])
+    out = []
+    for kind, sec, desc, num, extra in rows:
+        if kind == "note":
+            d = desc.lstrip("*")
+            if desc.startswith("*") and footnote:
+                d += " [*" + footnote + "]"
+            if extra:
+                d += " " + extra
+            out.append(("note", "NOTE (shroud / shroud screws)", norm(d), num, ""))
+        else:
+            fams = [r[4] for r in rows if r[0] == "option" and r[3] == num and r[2] == desc]
+            out.append(("option", sec, desc, num, "" if len(fams) == 2 else " [applies to: " + ", ".join(fams) + "]"))
+    return list(dict.fromkeys(out))
+
+
 def read(doc):
     out, held, unread, allmodels = [], [], [], []
     for pi, page in enumerate(doc):
@@ -142,8 +207,25 @@ def read(doc):
                 held.append({"page": pi + 1, "a": list(r)})
         held += [{"page": pi + 1, "b": list(r)} for r in bl]
         got = {r[2] for r in a}
+        na = notes_and_options(words)
+        nb = notes_and_options(plumber_words(doc.name, pi)) if na else []
+        n2 = 100
+        for r in na:
+            if r in nb:
+                n2 += 1
+                out.append((pi + 1, n2, ("opt", r[2] + r[4], r[3], None, None), r[1]))
+                got.add(r[3])
+            else:
+                held.append({"page": pi + 1, "notes_options_a": list(r)})
+        held += [{"page": pi + 1, "notes_options_b": list(r)} for r in nb if r not in na]
         unread += [{"page": pi + 1, "number": w[4]} for w in words if NUM.match(w[4]) and w[4] not in got]
     return out, held, unread, allmodels
+
+
+def plumber_words(path, pi):
+    import pdfplumber
+    with pdfplumber.open(path) as pdf:
+        return [(w["x0"], w["top"], w["x1"], w["bottom"], w["text"]) for w in pdf.pages[pi].extract_words()]
 
 
 def main(pdf, outp, label):
@@ -156,14 +238,15 @@ def main(pdf, outp, label):
     seen, lines, conflicts, secs = {}, [], [], {}
     for pg, n, (idx, desc, num, marks, date), cols in rows:
         d = desc + date_text(date)
-        if "x" in marks and "-" in marks:
+        sec_label = label if marks is not None else label + " — " + cols
+        if marks is not None and "x" in marks and "-" in marks:
             d += " [applies to: " + ", ".join(c for c, m in zip(cols, marks) if m == "x") + "]"
         if num in seen:
             if seen[num] != d:
                 conflicts.append({"number": num, "a": seen[num], "b": d})
             continue
         seen[num] = d
-        code = secs.setdefault(label, str(len(secs)))
+        code = secs.setdefault(sec_label, str(len(secs)))
         lines.append(f"{pg}|{n}|{num}|{d.replace('|', '/')[:200]}|{code}")
     bad = {c["number"] for c in conflicts}
     lines = [l for l in lines if l.split("|")[2] not in bad]

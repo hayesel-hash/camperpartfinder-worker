@@ -53,3 +53,25 @@ def test_model_matrix_pass_a_dates_marks_and_see_note():
                     ("A1", "Overload", "3100250.400", "x---------", None)]
     assert M.date_text("2/14/03**") == " (discontinued 2/14/03)"
     assert M.date_text("8/25/03##") == " (start date 8/25/03)"
+
+
+def test_model_matrix_notes_and_options():
+    def w(x, y, t):
+        return (x, y - 10, x + 6 * len(t), y, t)
+    words = [w(288, 452, "Customer"), w(331, 452, "Options"), w(367, 452, "(Required)"), w(414, 452, "57912.(X)31(X)"),
+             w(484, 452, "57915.(X)(X)(X)(X)"),
+             w(36, 453, "NOTE"), w(59, 453, "1:"), w(83, 453, "Open"), w(107, 453, "End"), w(126, 453, "Shroud"),
+             w(157, 453, "(Shell"), w(183, 453, "White)"), w(211, 453, "3108239.009"),
+             w(288, 462, "Electronic"), w(325, 462, "Control"), w(353, 462, "Kit"), w(414, 462, "3109226.005"),
+             w(484, 462, "3109226.005"),
+             w(83, 481, "*Closed"), w(117, 481, "End"), w(136, 481, "Shroud"), w(167, 481, "(Gray)"), w(194, 481, "3308084.023"),
+             w(288, 491, "Kit,"), w(301, 491, "Remote"), w(330, 491, "CC"), w(414, 491, "––––––––––"), w(484, 491, "3308417.009"),
+             w(36, 510, "*Closed"), w(70, 510, "End"), w(88, 510, "Shroud"), w(120, 510, "can"), w(138, 510, "not"),
+             w(154, 510, "be"), w(167, 510, "painted.")]
+    rows = M.notes_and_options(words)
+    assert ("note", "NOTE (shroud / shroud screws)", "Open End Shroud (Shell White)", "3108239.009", "") in rows
+    assert ("option", "Customer Options (Required)", "Electronic Control Kit", "3109226.005", "") in rows
+    assert ("option", "Customer Options (Required)", "Kit, Remote CC", "3308417.009",
+            " [applies to: 57915.(X)(X)(X)(X)]") in rows
+    assert ("note", "NOTE (shroud / shroud screws)",
+            "Closed End Shroud (Gray) [*Closed End Shroud can not be painted.]", "3308084.023", "") in rows
