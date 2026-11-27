@@ -76,6 +76,20 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   source `atwood-range-cooktop-manuals-drive-supplied`, publisher Dometic). Candidate for the range/oven matrices in
   the Atwood 2007 manual split pp 001-093.
 
+- `scripts/aftermarket_pdf/camco_oem.py` — Camco "Quality Parts for RV Manufacturing / OEM Products 2023": a 13 pt
+  product heading over a table whose white header row starts "PART #" and ends "QTY". Pass A text lines (upper-case
+  labels, Title-case heading, a final integer closes the row), pass B dict spans (font size, colour, position;
+  side-by-side tables keep their own heading). Only rows where both passes give the same number, heading and
+  attributes are kept; QTY (pack quantity) dropped (test: `tests/test_camco_oem.py`, source
+  `camco-oem-catalogue-2023-drive-supplied`). The retail pages at the back (filters, tumblers, coolers, portable
+  fridges) have no table heading and are held.
+- `scripts/aftermarket_pdf/curt_numeric_index.py` — CURT 2024 catalogue "ALL PRODUCTS LISTED NUMERICALLY" index
+  (Part # | Description | MP | IP, four columns a page; descriptions cut to ~20 characters in the source). Pages with
+  the vehicle listings (Part # | Years | Make / Model) are fitment and skipped. Pass A text lines (glued "200 0" and
+  "20002 MIRROR" cells split; a description starting with a number is not a part), pass B word boxes by column
+  (test: `tests/test_curt_numeric_index.py`, source `curt-2024-catalogue-drive-supplied`, manufacturer `CURT` as
+  printed). 1433 CURT parts from split pp 264-307; the other CURT splits stay held only for their own tables.
+
 ## Drop mechanics (learned 27 Nov)
 - `supplied_document_rows_v1.number` must match `^[A-Za-z0-9][A-Za-z0-9./-]{1,39}$` (no spaces).
 - `supplied_drops_v1.url` must be the `.../supplied-drops/<name>.b64` branch URL; when re-pushing a corrected drop
@@ -105,6 +119,12 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   fitment -> held for dedicated readers.
 - Check `pymupdf.Document.permissions` before reading: a PDF whose owner password forbids copying/extraction
   (e.g. Dexter "AL-KO Genuine Parts by Dexter" cross reference, 27 Nov) is held for Larry's decision, not read.
+  Nearly every Dexter product bulletin and the Dexter running-gear service manual are protected this way
+  (PB427, PB469, PB479, PB493, PB494, PB522 so far): test `doc.permissions & pymupdf.PDF_PERM_COPY` first.
+- 27 Nov ~03:20 run: Ventmate replacement vent lid sheets name only the vent styles they fit (Ventline, 1995+
+  Elixir, Heng's, 1995+ Jensen) with no OEM numbers: Ventmate identities loaded, no replacement links (fitment).
+  Automatic Distributors (Autodist) 2016 trailer catalogue (4 splits): PART # (distributor stock) / MFG # (unnamed
+  maker) with prices -> held with the distributors.
 
 ## Conversion kits (relation `replaces_with_kit`, claim kind `conversion_kit_replacement`)
 Approved by Larry, 26 Nov 2026 23:15. Use when a maker says its part/unit replaces another only
