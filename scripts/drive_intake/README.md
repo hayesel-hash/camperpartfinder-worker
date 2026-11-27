@@ -643,3 +643,28 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     section heading in brackets. Drop 1d36332bfe44360d (source `coleman-mach-so-quick-reference-distributor-drive-supplied`): 43 new
     Coleman-Mach parts; ~36 numbers held (multi-line cells, variant lines, 6 printed with two descriptions, X-Reference pp 13-15 not read).
   - Drop key id `drops-2026-11-27-intake-mddeb`. Tests: `tests/test_grove_thetford_alko_readers.py`.
+- 27 Nov ~13:49 run (session_017XuwiMmBbRj9SFy48EqsnL): no new PDFs or CSVs in Drive since 12:57 (only message docs 03-05 and the
+  Will thread doc 26, left to the :19 run). 11 files claimed, all re-held with what was publishable published: 981 new parts
+  (Thule 517, Truma 183, Thetford 118, Fiamma 109, Dexter 54), 900 existing parts evidenced; no cross-maker links.
+  - `scripts/aftermarket_pdf/dexter_v124_tables.py` — Dexter "Trailer Parts & Accessories" V1-24 branch catalogue: PART # | REF # |
+    DESCRIPTION [| attribute columns] tables under 14 pt coloured headings; only headings starting GENUINE DEXTER / DEXTER are read
+    (KODIAK AND DEXTER, FORTRESS ... FOR DEXTER HUBS are not). Pass A find_tables cells (heading line taken into the table and merged
+    "REF # DESCRIPTION" header cells handled), pass B pdfplumber word cells by header centres. Tables with two PART # columns (left /
+    right hand brakes) and "*" numbers are not read. Source `dexter-v124-branch-catalogue-drive-supplied` (publisher Dexter).
+    **Dexter short-form numbers held**: the catalogue prints 8-213-51, 8-219-9UC3, 10-19 ...; the DB stores Dexter numbers padded
+    (008-213-51 exists) and has no short forms, so 71 short-form numbers in split pp 130-193 wait for Larry (normalise to the padded
+    form, or wait for the SKU harmonisation spreadsheet). Loaded only K08-...-1G kits, D008-..., K71-..., 84656/42655UC1-style numbers.
+  - `scripts/aftermarket_pdf/movera_hersteller_tables.py` — Movera Caravan Workshop and Spare Parts Catalogue 2017-2018 (German):
+    maker from the 22 pt page title ("THULE: ..."), mapped only to a manufacturer of exactly that name; Pos. | Movera-Nr. |
+    Hersteller-Nr. | Artikel-Bezeichnung; "auf Anfrage" in the Movera-Nr. column still reads the maker number; rotated side labels
+    and 10-14 pt drawing callouts dropped (table text is 8.5 pt); bold full-width rows are sub-headings ("(Fortsetzung)" dropped).
+    Sources `movera-workshop-catalogue-2017-<maker>-drive-supplied` (kind distributor_catalogue, printed_publisher Movera GmbH).
+  - **The supplied lane takes one publisher per document** (`supplied_drops_v1.name` must equal the document hash prefix and
+    `supplied_documents_v1` has one publisher), so a multi-maker distributor catalogue can load only one maker per split. Movera: the
+    main maker of each split was loaded; ~920 numbers of the other makers (Truma 262, Fiamma 306, Thetford 96, AL-KO 92, REMIS 65,
+    Dometic 36, Thule 117) wait for per-row maker support. The same limit blocks Berger, MF Campingwelt, Coast to Coast, Vecam, Euro
+    Accessoires and the other-brand tables of the Dexter V1-24 catalogue.
+  - Movera prints Thetford 7101 / 7102 without the leading zero Thetford uses (07101 Lip Seal, 07102 Vent seal): created as printed,
+    flagged for review in the register row; not merged.
+  - Keystone advisory 21-214 (approved replacement regulators for the recalled Winn-Tec 6020) and the Powrtouch NZ retailer list
+    ("Vendor Code" column, no maker named) stay held for Larry. Tests: `tests/test_dexter_v124_movera_readers.py`.
