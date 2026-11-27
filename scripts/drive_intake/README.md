@@ -20,6 +20,39 @@ Folders watched (Drive folder ids):
   (the "RV Parts Finder — Larry & Michael" root; pass `orderBy` or the connector returns 5 per page). Marine /
   BoatPartMatch folders are a different project and are not registered here.
 
+## Decisions from Larry, 27 Nov 2026 ~12:40 ("yes to all")
+- **Peterson / Grote truck-lighting interchanges are in scope.** Published 27 Nov ~13:00 as manufacturer-certified aftermarket
+  claims: Peterson 1714 (Grote, Truck-Lite, Maxxima, Optronics -> Peterson), Grote 3058 (TruckLite, Peterson, Primatronics,
+  Maxxima, Optronics -> Grote, column kept as `qualifiers.interchange` form_fit_function / fit_function, Grote's good-faith
+  caveat on every claim). Readers `peterson_interchange.py`, `grote_interchange.py` (test `tests/test_lighting_interchange.py`).
+  Combination cells ("40850+G4002", "150-09 + 142-49") and cells listing several numbers are held, never split.
+  Letter prefixes are part of Peterson / Optronics numbers (B835 is not 835, M119A is not 119A, UL53CB is not BUL53CB): run
+  `aftermarket_oem_match_v1` over staged rows before publishing and create the exact part first for every
+  `matched_ignoring_letter_prefix` row (done for 47 Peterson numbers; 4 claims made mid-publish were revoked and re-published).
+- **Distributor catalogues count as a source.** Handling: a maker's number printed under that maker's name / column with a
+  description -> supplied-documents lane as that maker's part (source metadata kind `distributor_catalogue`,
+  `printed_publisher` = the distributor); a distributor's own stock number is never a part; a statement that one maker's part
+  replaces another maker's part -> stage in `aftermarket_assertions_v1` against a source whose metadata kind is
+  `distributor_pdf` and HOLD it ("distributor tier: waits for the seller-stated PDF publisher"). That publisher
+  (`publish_distributor_pdf_v1`: seller-stated tier, existing parts only, exact number match, like the store lane) was drafted
+  but NOT applied: the migration was refused by the session's permission check and needs Larry's explicit go-ahead.
+  The 57 distributor-held files were moved back to `new` at priority 70 with this note.
+- **Zip Dee is the publisher of the Zip Dee sheets** (manufacturer `Zip Dee` added; 76 new parts). **Lippert-printed Thule numbers
+  are Thule evidence** (source `lippert-ccd-thule-numbers-drive-supplied`, publisher Thule, printed by Lippert).
+- **Espar / Eberspächer numbers printed with spaces** are stored in the dotted form Eberspächer uses in its own lists already in the
+  DB: 12 digits "25 2069 99 06 00" -> 25.2069.99.0600; 8 digits "152 00 139" -> 152.00.139; other spaced shapes -> dots in place
+  of the spaces ("CA0 00 019" -> CA0.00.019); the printed form goes in the description. The Airtronic D2/D4 manual is `new` again.
+- **Copy-protected PDFs:** Larry said yes, but the intake still does not override a PDF's copy/extract restriction (standing rule:
+  never bypass PDF protections). They stay held; an unrestricted copy, or the same numbers from the maker's own web pages /
+  spreadsheets (e.g. the Dexter SKU harmonisation spreadsheet on dexterindex.com, already approved), can be loaded instead.
+- **WFCO 2026 crossover chart:** still waits for a sharper copy (printed page 30 at 300 dpi or more, or the original PDF).
+
+## Large cross-reference payloads
+Thousands of staged rows are not pasted into SQL: `scripts/aftermarket_pdf/xref_payload.py` writes the rows as an encrypted
+payload (same format and key table as supplied drops) to the supplied-drops branch as `xref-<sha16>.b64`; then
+`select net.http_get('<raw url>')`, and insert from `jsonb_to_recordset(convert_from(extensions.decrypt_iv(...)))` of
+`net._http_response.content` (see the 27 Nov ~13:00 Peterson / Grote loads).
+
 ## Lanes
 - `aftermarket_xref` — a maker states "our part X replaces / is equivalent to brand Y part Z".
   Stage into `aftermarket_assertions_v1` (relation `replaces`, brand named on page, page and
