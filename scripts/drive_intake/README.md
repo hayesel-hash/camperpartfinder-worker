@@ -230,3 +230,7 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   readers) and webasto (9 files, all done: 372 new parts). Wedgewood 33/35: Item | Description | 6 model columns under a
   3-row header (WEDGEWOOD/ATWOOD, RV/CV/RA/CA, 1733/2133/33) with colour / burner-position variants right-aligned in the
   Description cell and continuation rows holding only the variant ("Black", "Bisque") -> base description + variant.
+  Thetford family (8 files): Electra Magic 80 and Porta Potti Curve published with thetford_us_sheet.py (Curve: 8
+  supersessions to the legacy-map v2 lane); Tecma Silence Plus 2G held (shared "Superseded by" / seat-model cells);
+  Triplex SOH76/SOH77, Enigma SOH46 cookers and N3000 / N4000 fridge lists held for the Thetford European
+  spare-parts-list reader (SSPAnnnn numbers with production-date qualifier lines and colour suffixes).
