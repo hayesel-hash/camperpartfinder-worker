@@ -343,7 +343,7 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     with wildcard numbers like 834(XX)YY.400, A/C replacement decision trees, control-conversion kits, Air Command spec
     table); legacy-map v2 candidates once a storage rule for the wildcard patterns is decided.
   - Tests: `tests/test_thetford_eu_and_dometic_wh.py`.
-- 27 Nov ~09:20 run (session_017XuwiLAuZNuf7cwtm4tBN9): no new PDFs in Drive since 06:55. 61 files: 53 done, 8 held; 359 new
+- 27 Nov ~09:20 run (session_017XuwiLAuZNuf7cwtm4tBN9): no new PDFs in Drive since 06:55. 64 files: 53 done, 11 held; 359 new
   parts (Dometic 65, Lippert 294), 25 Lippert supersession claims, no cross-maker links.
   - `scripts/aftermarket_pdf/dometic_coolfreeze_parts_list.py` — Dometic LLC (Waeco) CoolFreeze CF parts list 3312482.023
     (Index | Part Number | [Model] | Description; "CF-035AC110 = A" legends with A / B / -- marks; "fits serial numbers:"
@@ -378,3 +378,7 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   - Held: Lippert IDO-484 (Print-to-PDF scan, OCR); Lippert Premium Axle and Suspension Parts Catalogue 2025, 2 splits
     (multi-layout: retail clamshell tables, Part # | Item # | Description | Qty wheel-end tables, product pages). CCD-0010172
     (Gen I -> Gen II jack procedure) names no part pairs -> done, nothing to load.
+  - Zip Dee door / patio / slideout awning parts sheets held: no maker name or logo printed anywhere in them (only source.txt
+    says awningsbyzipdee.com, hash matches), and "Zip Dee" is not a manufacturer in the DB yet -> Larry's call on the
+    publisher. Reader ready: `scripts/aftermarket_pdf/zipdee_parts_list.py` (Ref # | PART # | description; patio 40/40 rows
+    agree, door 30, slideout 21; kit-content blocks where the kit title row has no Ref # are left out).
