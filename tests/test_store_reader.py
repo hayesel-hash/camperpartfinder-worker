@@ -108,6 +108,13 @@ class Tables(unittest.TestCase):
         self.assertIn("Replaces Dometic Atwood Control Boards 91349, 91420, 91504, 93254, 93307, 93865", f["compat"])
 
 
+class Labels(unittest.TestCase):
+    def test_label_line_joined_to_numbers(self):
+        page = "<html><body><h1>MC Enterprise 521099MC Igniter Board</h1><div><dt>Replaces</dt><dd>Suburban Boards: 230483, 230587, 520741</dd></div></body></html>"
+        f = sr.extract(page, "https://pantherrvproducts.com/521099mc/")
+        self.assertIn("Replaces Suburban Boards: 230483, 230587, 520741", f["compat"])
+
+
 class Sitemaps(unittest.TestCase):
     def test_index_children_with_query_strings(self):
         pages = {

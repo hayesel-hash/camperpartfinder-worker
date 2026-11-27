@@ -132,6 +132,7 @@ def _ld_products(blocks):
     return out
 
 
+LABEL_LINE = re.compile(r"(?im)^[ \t]*((?:replaces|replacement for|replaces part numbers?|direct replacement for|cross[- ]?reference|interchanges? with|oem part numbers?)[ \t]*:?)[ \t]*\n")
 TABLE_CONTEXT = re.compile(r"replac|cross.?ref|interchange|equivalent|compatib|oem|o\.e\.|supersed", re.I)
 
 
@@ -167,6 +168,9 @@ def extract(html_text, url, url_pattern=None):
     p.close()
     text = re.sub(r"[ \t\r\f\v]+", " ", "".join(p.text))
     text = re.sub(r"\n\s*\n+", "\n", text)
+    # A bare label line ("Replaces", "Replacement for:") followed by the numbers on the next line
+    # (BigCommerce/Magento attribute blocks) is joined into one statement.
+    text = LABEL_LINE.sub(lambda m: m.group(1).strip() + " ", text)
     ld = (_ld_products(p.ld) or [{}])[0]
     brand = ld.get("brand")
     if isinstance(brand, dict):
