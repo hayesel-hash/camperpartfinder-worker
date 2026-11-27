@@ -234,3 +234,29 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   supersessions to the legacy-map v2 lane); Tecma Silence Plus 2G held (shared "Superseded by" / seat-model cells);
   Triplex SOH76/SOH77, Enigma SOH46 cookers and N3000 / N4000 fridge lists held for the Thetford European
   spare-parts-list reader (SSPAnnnn numbers with production-date qualifier lines and colour suffixes).
+- 27 Nov ~07:19 run (session_017XuwiMe8BmEoSayDLzFYRZ): batch-2 folder now has 9 PDFs + SOURCES.md (all registered at
+  priority 10). Their titles use " – " (en dash), so the generated `family` column is the whole lower-cased title
+  (it splits on " - " only); claim them with `claim_drive_intake_v2(session, n, null, 'aftermarket_xref')`.
+  Published (relation `replaces`, staged via `scripts/aftermarket_pdf/stage_sql.py`-style SQL, compact VALUES):
+  Dometic fridge replacement chart 151 rows (whole-unit, dimensions + cut-out check on every claim), Progressive
+  Dynamics crossover 66 rows (54 new claims), WFCO 2025 cross-reference sheet 148 rows (144), RV Designer vent lids 12,
+  SKF interchange 5 Dexter seal rows. Advent Air Coleman chart: 27 rows staged as `fits_model` (compatibility through
+  ACCOLKIT; no Coleman part is replaced), not published. Peterson + the two Grote lighting interchanges held for
+  Larry's scope decision (~3,200 bare heavy-truck lighting number pairs, no descriptions, none of the makers in the DB).
+  Brand aliases added: Powermax/POWER MAX -> PowerMax, Iota -> IOTA, CAMCO -> Camco, HENGS -> Heng's,
+  VENTLINE -> Ventline, plus upper-case WFCO headings (MAGNETEK -> Parallax as before, FURRION, XANTREX, ...).
+- **Prefix-ignoring OEM match hazard** (`aftermarket_oem_match_v1` outcome `matched_ignoring_letter_prefix`): when one
+  batch creates an OEM identity "641" and later rows name "N641", the later rows match "641". It happened with the Dometic
+  chart (Norcold 641/N641, 841/N841): the wrong claim was revoked (`state='revoked'`, reason in restrictions), Norcold
+  N641/N841 created with `aftermarket_oem_create_v1`, the six rows re-staged and re-published. After publishing, check
+  `restrictions->>'oem_match'` for anything other than `create` / `matched` and look at each one (WFCO WF-8735 -> 8735
+  is a correct example).
+- Readers added: `dometic_fridge_replacement_chart.py` (pdftotext -layout vs word columns; bare option numbers take the
+  previous prefix only if that full model is printed somewhere on the page), `advent_coleman_chart.py`,
+  `pd_crossover_list.py` (merged PD cells from the ruled lines; text-layer line multiset check), `rvd_vent_lid_xref.py`,
+  `skf_interchange.py` (dotted-leader "Mfr no. | Mfr. | Part no." index, any page), `wfco_crossref_sheet.py`
+  (pdfplumber vs pymupdf words over the same table geometry; WF-5220/5320 pairs, "/" shorthand, broken numbers and
+  continuation lines printed in the WFCO column are held). Helper tests: `tests/test_batch2_xref_readers.py`.
+- Norcold N1095 (624870) is copy-protected -> skipped. N2090, N2152 and 2118 PolarMax were claimed and released
+  unprocessed with layout notes (NO. | PART # | DESCRIPTION | X model columns; vertically centred numbers; SUPERSEDED TO
+  notes; shaded = NOT AVAILABLE); 105 of their 267 numbers are already Norcold parts.
