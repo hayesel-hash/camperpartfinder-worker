@@ -701,3 +701,30 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     the DB stores Dometic's own lists as the 10 digits 2412137008 (9 of the 74 printed numbers already exist that way). Loading as printed
     would duplicate parts; the window-pane table "Berger | Dometic Nr. | Bestellmaß mm | Glasmaß mm | Bezeichnung" is a second layout.
     Drop key id `drops-2026-11-27-intake-ksq9`. Tests: `tests/test_berger_coleman_ceiling_readers.py`.
+- 27 Nov ~14:49 run (session_017XuwiMeK76SLnfVdy3qnFC): no new PDFs or CSVs in Drive since 12:57 (Michael's folder: only message
+  doc 09, left to the :19 run). Families: coast to coast rv (8 files: 5 done, 3 held) and mf campingwelt (5 files, all held, one partly
+  published). 26 new parts (Carefree 16, Fiamma 10), 183 existing parts evidenced; no cross-maker links (distributor catalogues with
+  maker numbers only, no maker-to-maker statements).
+  - `scripts/aftermarket_pdf/coast_maker_column_tables.py` — Coast to Coast RV (Australian distributor) "NO. | <Maker> Part No. | Coast
+    Part No. | Description" tables (Carefree awning spares: 2017 catalogue split pp 001-076 pdf pp 36/38, top-aligned shaded rows with a
+    header-less side table; 2026 catalogue split pp 001-083 pdf pp 57/58, ruled rows with vertically centred cells). Coast numbers
+    (NNN-NNNNN) are only the row anchors. Pass A pymupdf text order, pass B pdfplumber words in bands between Coast numbers
+    (`top` / `center` mode per edition). Maker numbers wrapped after a hyphen are joined ("R012530-" + "TB76L"; checked against the
+    existing Carefree R012530-TB76L). Source `coast-to-coast-catalogues-carefree-drive-supplied`, drops 31ce7ab19a7fb421 (16 new) and
+    fa7b54c77b7503ce (all existing). The Thetford fridge spares (2017 split pp 153-228, pdf pp 38-41) print "Thetford Part No." for
+    numbers the DB holds as Norcold parts (50 of 75) -> held for Larry; that table also has Description before Coast Part No. (reader
+    extension needed). Suburban spares (2017 split pp 229-304, pp 30-34) print Suburban numbers unlabelled at the end of Coast's
+    descriptions ("... COMPUTER BOARD. 521114", "090613/OLD090470") -> held. Winegard spares (2026 split pp 250-332, p 44 MODEL NO
+    column; p 45 Sensar HV page without a maker name, RP-3523 vs RP-3525 for the base plate) -> held for a reader; Winegard is not a
+    manufacturer yet.
+  - `scripts/aftermarket_pdf/mf_campingwelt_tables.py` — MF Campingwelt / Frankana Freiko Ersatzteilkatalog 2021-2022 "Pos | Bezeichnung |
+    Hersteller Nr. | Art-Nr." tables. Maker only from the running head ("Fiamma | Markisen"); `--headings` also accepts a table whose
+    nearest >= 12 pt heading names exactly one maker (trial only: it gave few rows and one shifted row in the Truma tables, so nothing
+    was loaded that way). Header lines with extra words (quantity / "passend fuer" columns) make the table unread; a description line
+    directly above a number (wrapped / centred cell) makes that row unread; numbers ending in "-" and numbers printed with two
+    descriptions are not loaded. pdfplumber needs `x_tolerance=1.5` (default 3 glues "Stueck98655-050"). Drop 48ab8ce344a93c3f
+    (source `mf-campingwelt-catalogue-2021-fiamma-drive-supplied`): 109 Fiamma rows, 10 new. The other four splits wait for a per-table
+    maker reader: running heads are categories ("Toiletten | Wasser", "Heizen | Gas") and many headings name only a product
+    ("Ersatzteile Carry-Bike", "Mover SR", "Combi 4"); taking the maker from a product name needs Larry's OK. The Thule awning pages print
+    only MF Art-Nr. (no Thule numbers).
+  - Drop key id `drops-2026-11-27-intake-mek7`. Tests: `tests/test_coast_mf_readers.py`.
