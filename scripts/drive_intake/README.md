@@ -90,6 +90,19 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   (test: `tests/test_curt_numeric_index.py`, source `curt-2024-catalogue-drive-supplied`, manufacturer `CURT` as
   printed). 1433 CURT parts from split pp 264-307; the other CURT splits stay held only for their own tables.
 
+- `scripts/aftermarket_pdf/coleman_mach_rpl.py` — Coleman-Mach (Airxcel RV Products Division) "REPAIR PARTS LIST" sheets
+  (R-6xx: NO. | USED ON MODELS / CODE | PART NUMBER | DESCRIPTION | NO. REQ.). Pass A text lines (used-on cell = the
+  line before the number, item marker stripped), pass B word boxes by header column. The used-on cell goes into the
+  description unless it is "All"; quantities dropped; stops at "ns = not shown" (test: `tests/test_coleman_mach_rpl.py`,
+  source `coleman-mach-repair-parts-lists-drive-supplied`). First use: Mach 8 472X4*87X R-607C, 30 rows.
+- `scripts/aftermarket_pdf/dometic_parts_list.py` — Dometic / Duo-Therm (LaGrange) PageMaker "PARTS LIST" sheets for roof
+  A/Cs and heat pumps (Index | Description | Part No. / Part Number [| Model], numbers like 3102888.009). Pass A text
+  lines (index line opens a row, number line closes it), pass B word boxes per header group (a number on a second line
+  continues the index line above). Only agreeing rows are kept; every other Dometic-style number on the page is reported
+  as `unread` (header-less right-hand columns, "Customer Option" boxes where the number comes first, NOTE shroud kits)
+  (test: `tests/test_dometic_parts_list.py`, source `dometic-ac-parts-lists-drive-supplied`). First use: 620315.421,
+  B3200 3253.334C, 630515.321 heat pump. Candidate extension: the header-less right column and the option boxes.
+
 ## Drop mechanics (learned 27 Nov)
 - `supplied_document_rows_v1.number` must match `^[A-Za-z0-9][A-Za-z0-9./-]{1,39}$` (no spaces).
 - `supplied_drops_v1.url` must be the `.../supplied-drops/<name>.b64` branch URL; when re-pushing a corrected drop
@@ -147,3 +160,11 @@ and `qualifiers.conditions` (installation conditions); the replacement maker mus
 Publisher: `rv_private.publish_conversion_kit_replacements_v1()` (cron every 10 min). Claims always
 carry `requires_conversion_kit`, `not_a_direct_swap`, the kit parts and the conditions.
 First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-section kits (9, reclassified).
+- 27 Nov ~05:20 run: 31 new PDFs registered (Webasto 2024-2025 heating/A-C catalogue 6 splits, Pennine & BCA converter
+  catalogue 4 splits, Reimo windows/doors/locks 2025 4 splits, Dometic fridge/A-C/furnace lists, Lippert/Furrion CCD sheets,
+  SHURflo 4008, Camec doors). PB456, PB473 and PB520 are copy-restricted like the other Dexter bulletins. The two
+  "Dexter UFP LIT-708-00UFP" splits are ChatGPT copies of the catalogue already published in full on 26 Nov (source.txt
+  original hash 50943e2e...) -> done, nothing new. Dometic 620325.421 has a private font encoding (text layer is
+  gibberish) -> held for OCR; don't decode by guesswork. Camec DOORS section (catalogue pp 216-227) held for a dedicated
+  reader (code - description lines, spec tables with empty cells and repeated rows). Kodiak 2019 splits pp 21-38 and
+  39-44 held with pp 1-20.
