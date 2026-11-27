@@ -528,3 +528,7 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     `result.previous_load`). Only numbers not already loaded from the same split were sent.
   - **The SeaLand splits still need OCR**: about 49 sheets across the 4 splits have no text layer (sheet text drawn as vector outlines,
     e.g. guide p 34 "PARTS LIST: 4310 MODEL", or page images). Split 1 also waits for the model index pages (pp 3-11). All 4 stay held.
+  - Atwood 2007 manual split pp 001-093 re-checked and re-held with per-page layout notes in its register row (~390 of ~510 five-digit
+    numbers on split pp 46-83 are not in the DB). The p 67 / 69 "Parts Identification" text layer prints the while-supplies-last symbol
+    as a trailing "a" (53198a) and obsolete cells as "52634OBS"; wedgewood_range_matrix.py finds no header on pp 65 / 71 even with
+    upper-case ITEM / DESCRIPTION allowed.
