@@ -310,3 +310,30 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     (pymupdf find_tables vs pdfplumber extract_tables; colour part-number columns; header-less continuation tables).
     `lci_ccd_model_list.py` extended: "All" model cells dropped, callout-letter runs end a description (Girard GSWH-2).
   - Tests: `tests/test_drive_intake_mgnd_readers.py`.
+- 27 Nov ~08:50 run (session_017XuwiPbNJ6nszrfu5pC1BQ): no new PDFs in Drive since 06:55 (batch-2 folder unchanged).
+  14 files: 8 done, 6 held; 70 new parts (Dometic 41, Thetford 29), 310 rows loaded, no cross-maker links (all OEM lists).
+  - `scripts/aftermarket_pdf/dometic_wh_service_kits.py` — Dometic (ex-Atwood) water-heater service-kit lists: InDesign
+    "Service Kit Parts Descriptions" (X-mark model columns | Service Kit Number | Description; footnote superscripts on
+    the model headers dropped by font size; "(like 91858 ...)" continuation lines; footnotes "1\x07The ..." stop a row)
+    and the DITA "Spare Parts" table (Ref.No. | Pos | Qty | Description, English table only). The illustration page's
+    callout numbers are compared with the table (WH-6GA list: 92568 / 94016 / 94067 printed only on the illustration,
+    not loaded). Source `dometic-water-heater-service-kit-lists-drive-supplied`. The WH6EA sheet carries a DRAFT
+    watermark (kept in the section label).
+  - `scripts/aftermarket_pdf/thetford_eu_spare_list.py` — Thetford Europe Word spare-parts tables (No. | Description |
+    1-3 "Spare part number" columns | Colours). A number covers every item line of its cell; cells are bounded by the
+    same-class run (rule / grey shading / white) at two sample x positions per column, computed twice: pass A from the
+    vector paint order, pass B from the rendered page. Needed because visible rules alone over-extend shaded cells
+    that sit on an unshaded cell with no rule (C200 23848), and shading alone cannot split two shaded cells with no
+    rule. Several numbers in one cell, or a white cell over several item lines with the number on one item's baseline
+    (S220 212369 "Rim"), are matched to their own item line. Grey numbers = "not available anymore" (only when the
+    legend is in the document). Dates (06-12-16) are qualifiers, not numbers. Source
+    `thetford-eu-spare-parts-lists-drive-supplied`. Published: C200, C220, C260, C500, S220, S260, Bravura page 2.
+    Still held: Bravura page-3 "Optional Extra's" (letter items, no "Spare part number" header); cookers Caprice
+    SOH72, Enigma SOH46, Triplex SOH76 / SOH77: the production-date qualifiers print "≥" as ">" plus a separate
+    underline drawing (the text layer says ">"), item rows with production-date sub-rows lose the item name, and two
+    SSPA numbers at mid-row positions in one shaded cell are not assignable. N3000 / N4000 fridge lists not tried yet
+    (same family; 55 / 45 pages).
+  - Dometic RV Customer Service Training Binder (81 pp) held: all same-maker (awning FRTA obsolete -> replacement tables
+    with wildcard numbers like 834(XX)YY.400, A/C replacement decision trees, control-conversion kits, Air Command spec
+    table); legacy-map v2 candidates once a storage rule for the wildcard patterns is decided.
+  - Tests: `tests/test_thetford_eu_and_dometic_wh.py`.
