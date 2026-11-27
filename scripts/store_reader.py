@@ -234,6 +234,11 @@ def _xml(worker, url):
     return html.unescape(body.decode("utf-8", "replace"))
 
 
+def _same_site(url, host):
+    h = urllib.parse.urlsplit(url).hostname or ""
+    return h.removeprefix("www.") == host.removeprefix("www.")
+
+
 def sitemap_roots(worker, store):
     """The configured sitemap URL, or (when it is the literal 'robots') the Sitemap: lines of the
     store's robots.txt on the same host."""
@@ -241,9 +246,9 @@ def sitemap_roots(worker, store):
         return [store["sitemap_url"]]
     text = read(worker, f"https://{store['host']}/robots.txt", 500_000).decode("utf-8", "replace")
     roots = [m.strip() for m in re.findall(r"(?im)^\s*sitemap\s*:\s*(\S+)", text)]
-    roots = [u for u in roots if urllib.parse.urlsplit(u).hostname == store["host"]]
-    if not roots:
-        raise worker.Held("robots.txt names no same-host sitemap")
+    roots = [u for u in roots if _same_site(u, store["host"])]
+    if not roots:  # common platform defaults (BigCommerce, then generic)
+        roots = [f"https://{store['host']}/xmlsitemap.php", f"https://{store['host']}/sitemap.xml"]
     return roots
 
 
@@ -255,10 +260,14 @@ def load_frontier(worker, store, max_children=400):
         if sm in seen:
             continue
         seen.add(sm)
-        body = _xml(worker, sm)
+        try:
+            body = _xml(worker, sm)
+        except Exception as exc:
+            print(json.dumps({"store": store["id"], "sitemap_failed": sm, "error": f"{type(exc).__name__}: {exc}"[:200]}), flush=True)
+            continue
         locs = LOC.findall(body)
         if re.search(r"<sitemapindex", body, re.I):
-            todo.extend(u for u in locs if urllib.parse.urlsplit(u).hostname == store["host"] and u not in seen)
+            todo.extend(u for u in locs if _same_site(u, store["host"]) and u not in seen)
         else:
             urls.extend(u for u in locs if pattern.match(u))
         time.sleep(PAGE_PAUSE)
