@@ -382,3 +382,38 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     says awningsbyzipdee.com, hash matches), and "Zip Dee" is not a manufacturer in the DB yet -> Larry's call on the
     publisher. Reader ready: `scripts/aftermarket_pdf/zipdee_parts_list.py` (Ref # | PART # | description; patio 40/40 rows
     agree, door 30, slideout 21; kit-content blocks where the kit title row has no Ref # are left out).
+- 27 Nov ~09:49 run (session_017XuwiLMGPirfH4HBEcuVj8): no new PDFs in Drive since 06:55. 24 files: 4 done, 20 held.
+  109 new cross-maker replacement links (MORryde pin boxes), 319 new Valterra parts.
+  - `scripts/aftermarket_pdf/morryde_pin_box_chart.py` — MORryde Aftermarket Product Catalogue 2021 v7b, "RUBBER PIN BOX FIT
+    CHART" (printed p16, split pp 011-021 page 6): Cross Reference Guide MFG | MODEL# (stock pin box) | MORryde part per trailer
+    GVWR band | MORryde Pin Box Rating; MORryde asks for the stock pin box's part number to order, and p15 says the Rubber Pin
+    Box is "designed to directly replace the Lippert Rhino Pin Box". pymupdf find_tables vs pdfplumber extract_tables (43/43
+    rows agree). Staged as relation `replaces` (source `morryde-aftermarket-catalogue-2021-v7b`, maker `MORryde` added, category
+    running_gear) with trailer_gvwr, morryde_pin_box_rating and the "GVWR above are general guidelines" footnote on every claim:
+    109 claims published (Lippert, Leland, Fabex, Youngs Welding, RBW, Dexter pin boxes; 35 stock pin box identities created,
+    no prefix-ignoring matches). Comma lists of plain numbers split (Leland "7920, 7921", Fabex "300,314,316"). Held: named
+    sizes without numbers (Lippert Rhino, Venture Med/Long, Seitz Long, Youngs Welding Long/Medium/Short/45 degree),
+    "Lippert 1621, SHD-TA" (one model or two?), "Atwood AB-34 HD" (space) and Atwood AB-72: the DB alias Atwood -> Dometic was
+    set for Atwood appliances and the page does not say who makes Atwood pin boxes now. Other MORryde splits (steps, TV
+    mounts, trays, X-Brace) and the Airstream StepAbove size chart: MORryde's own products by trailer dimension -> held
+    (fitment lane; supplied-lane candidates).
+  - `scripts/aftermarket_pdf/valterra_retail_catalogue.py` — Valterra RV Retail Parts Catalogue (39 pp, "Part No. | Ctn.Qty. |
+    Ctn.Wt. | Retail Price"): pymupdf words vs pdfplumber words with one row rule (Part No. column + three numeric cells right
+    of Ctn.Qty., "50/200" carton cells allowed; wrapped lines at the description indent belong to the row). pdfplumber glues
+    words around commas, so the passes are compared with spaces removed. Drop e8971a7e156befc8 (key id
+    `drops-2026-11-27-intake-lmgp`, source `valterra-retail-catalogue-drive-supplied`, manufacturer `Valterra` added): 319 new
+    parts. Not loaded: 14 "Same as above" rows, 10 one-pass rows (superscript fractions lost by pdfplumber), 2 numbers printed
+    twice with different wording. "Bladex valves are interchangeable with Valterra, Grentec, Anonda, Larden, and Bristol
+    brands" names no numbers -> no links.
+  - Tests: `tests/test_morryde_valterra_readers.py`.
+  - Held with the distributors: Movera Caravan Workshop and Spare Parts Catalogue 2017-2018 (5 splits; Movera-Nr. | Hersteller-Nr.
+    under maker headings FIAMMA / THULE / TRUMA / THETFORD / SEITZ / AL-KO) and "20 RV Designer - Dealer Hardware Catalogue
+    Excerpt" (really a distributor's section G, "G20_233-244": 5-digit order numbers + "#" maker numbers, JR Products etc.).
+  - Held, fitment: Firestone Airide 2026 application guide (2 splits) and Ride-Rite service air springs (2 splits): vehicle
+    tables of Firestone's own kits and service springs, no other maker's numbers. TriMark Handles Catalogue (2 splits): all
+    62 pages are images -> OCR.
+  - Held for readers: Marshall Excelsior LP gas catalogue 2023-2024 (free-form product blocks with "Bulk# / Packaged#"),
+    Ventline (Dexter) ventilation parts catalogue (multi-layout; garnish numbers built from base + suffix columns), Flojet
+    R3426504A datasheet (~25 accessory numbers on p3). Flojet Q301V-117S-3A "Replaces (closest matches): 04406143A R4406143M"
+    is Flojet's own older models and only "closest" -> not loaded. SHURflo 4048 / 4008 data sheets: every number already in
+    the DB -> done, nothing new.
