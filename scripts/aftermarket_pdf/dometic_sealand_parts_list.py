@@ -8,8 +8,11 @@ right-hand table's ITEM number ends up between a left-hand description and the n
 Only pages whose text contains "PARTS LIST" are read (the model index pages Model | Description | Item | Ref. List # |
 Page are not). Numbers with no description on their baseline (sheet P/N, numbers whose description is offset in the
 sheet's own layout) are reported as `orphans`, numbers of other lengths ("38311987") as `odd_numbers`.
-Sheets printed rotated on the page (page rotation, or vertical / upside-down text lines) are skipped and reported as
-`rotated_pages` (the baseline rule pairs the wrong words there). Pass A: pymupdf words; pass B: pdfplumber words;
+Sheets printed turned on the page with every sheet line running bottom-to-top (dir (0, -1), e.g. guide pp 17-18 "PARTS
+LIST: 300 TALL GRAVITY FLUSH TOILET") are read in the sheet's own reading frame: word boxes of the vertical lines are
+turned (x' = page height - y, y' = x) and the same baseline rule applies; pdfplumber reads those lines with
+char_dir_rotated="btt" (its default spells them backwards). Other rotations (page rotation, upside-down or top-to-bottom
+lines, mixed directions) are still skipped and reported as `rotated_pages`. Pass A: pymupdf words; pass B: pdfplumber words;
 rows are compared with spaces removed (pdfplumber writes "KIT,MOUNT" and letter-spaced "( M U S T ...") and pass A's
 text is stored; only rows on which both agree are kept. A number repeated on later
 sheets keeps the first description; differing later wordings are reported.
@@ -69,13 +72,24 @@ def main(pdf, outp, prefix, first_orig=1):
             continue
         dirs = {tuple(round(x) for x in l["dir"]) for b in p.get_text("dict")["blocks"] for l in b.get("lines", [])
                 if any(sp["text"].strip() for sp in l["spans"])}
-        if p.rotation or dirs - {(1, 0)}:
-            # sheet printed rotated on the page (vertical or upside-down text): the baseline rule does not apply
+        turned = False
+        if not p.rotation and (0, -1) in dirs and dirs <= {(1, 0), (0, -1)}:
+            tp = p.get_textpage()
+            vlines = {(b["number"], k) for b in p.get_text("dict", textpage=tp)["blocks"]
+                      for k, l in enumerate(b.get("lines", [])) if tuple(round(x) for x in l["dir"]) == (0, -1)}
+            hl = p.rect.height
+            wa = [(hl - w[3], w[0], hl - w[1], w[2], w[4]) for w in p.get_text("words", textpage=tp) if (w[5], w[6]) in vlines]
+            wb = [(hl - w["bottom"], w["x0"], hl - w["top"], w["x1"], w["text"])
+                  for w in pl.pages[i].extract_words(char_dir_rotated="btt") if not w.get("upright", True)]
+            turned = True
+        elif p.rotation or dirs - {(1, 0)}:
+            # sheet printed rotated on the page (upside-down / top-to-bottom / mixed text): the baseline rule does not apply
             rotated.append({"page": i + 1, "rotation": p.rotation, "title": title_of(text),
                             "numbers": len(re.findall(r"\b\d{9}\b", text))})
             continue
-        wa = [(w[0], w[1], w[2], w[3], w[4]) for w in p.get_text("words")]
-        wb = [(w["x0"], w["top"], w["x1"], w["bottom"], w["text"]) for w in pl.pages[i].extract_words()]
+        else:
+            wa = [(w[0], w[1], w[2], w[3], w[4]) for w in p.get_text("words")]
+            wb = [(w["x0"], w["top"], w["x1"], w["bottom"], w["text"]) for w in pl.pages[i].extract_words()]
         a, oa, da = rows_from(wa)
         b, ob, db = rows_from(wb)
         key = lambda x: (x[0], "".join(x[1].split()))  # pdfplumber spaces some words differently ("KIT,MOUNT")

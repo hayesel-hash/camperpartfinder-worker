@@ -448,3 +448,27 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     ALKO / KNOTT / BPW" axle and coupling types = fitment), Vecam 2015 (R-numbers, partly private-font text), Grassroutes Leisure,
     Pennine Leisure Supplies / BCA converter catalogue, the RV Supplies (NZ) Powrtouch Evolution list.
   - Skipped (copy-protected): Power Gear hydraulic leveler manual 82-L0040, Knott Avonride UK catalogue.
+- 27 Nov ~10:49 run (session_017XuwiMX8W6KFHvosgMG6Yg): no new PDFs in Drive since 06:55. 13 files: 6 done, 9 held (11 new + 2 held
+  re-checked), plus 2 turned SeaLand sheets read for a held split. 444 new Lippert parts, 16 new Dometic (SeaLand) parts, ~1,100 existing
+  parts evidenced. No cross-maker links (all own-maker lists or fitment guides).
+  - `scripts/aftermarket_pdf/lippert_catalogue_tables.py` — Lippert retail catalogues (2023 CATALOG, 3 ChatGPT splits; Premium Axle and
+    Suspension Parts Catalogue 2025, 2 splits): shaded product tables with a part-number column ("Part #", colour columns "Black # |
+    White #", packaging columns "Retail Clamshell # | 10-Pack # | Brown Box #"). Pass A pymupdf find_tables() cells, pass B pdfplumber
+    words inside the same cell boxes. Description = Description cell or the product heading (DINOT-Black >= 17 pt lines above the table)
+    + "Header: value" attributes; colour / packaging label appended. "Industry #", "OEM #", "Bearing Kit #", "Suggested Nut #",
+    "Suggested Idler Hub #", "Seal #", "Sleeve #", "Switch Kit #", "Cartridge Replacement #" are never part columns. Tables whose number
+    column find_tables clips ("t #" headers: Kwikee steps, pin boxes) and vehicle fit charts ("Part#") are not read. Test:
+    `tests/test_lippert_catalogue_tables.py`. Sources `lippert-2023-catalog-drive-supplied` (URL = Drive copy of the unsplit file; the
+    original web URL is not recorded) and `lippert-premium-axle-catalogue-2025-drive-supplied`.
+  - The 2023 catalogue's cross-brand wording is fitment only: Solera "universal hardware" fits Carefree / Dometic (A&E) awning models,
+    Girard door kits fit Suburban / Atwood / Dometic water-heater sizes, and the awning page maps new to old Solera series names (no
+    numbers). The pin box tables (split 3 pp 66-69) print "OEM #" 1621 / 1116 / 0719 next to Lippert pin box numbers, which may answer
+    MORryde's "Lippert 1621" question, but the part-number column is clipped by the table finder there (not read).
+  - `dometic_sealand_parts_list.py`: sheets printed turned on the page with every line running bottom-to-top (dir (0, -1)) are now read in
+    the sheet's reading frame (x' = page height - y, y' = x; pdfplumber `char_dir_rotated="btt"`). Split pp 001-033 guide pp 17-18 loaded as
+    a supplement drop under the same name (previous result kept as `result.previous_load`). The other three splits still list rotated
+    pages: re-run them with the extension (check each page's direction set first; upside-down / top-to-bottom sheets are still skipped).
+  - Held, fitment: Cummins Onan F-1061 Green Label parts reference (Onan filters / plugs / kits by generator model; the superscript letters
+    after numbers such as 140-2105C are service intervals), Air Lift Load Support Application Guide (2 splits; p 10-11 service parts are a
+    supplied-lane candidate), Horizon Global Towing & Trailering 2022 Application Guide (5 splits; multi-layout catalogue, no Horizon Global
+    brand in the DB yet; ModuLite 119147 "(Replaces 119179)" etc. on split pp 126-250 PDF p61 = same-maker supersessions).
