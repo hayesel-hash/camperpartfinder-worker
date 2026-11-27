@@ -343,8 +343,8 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     with wildcard numbers like 834(XX)YY.400, A/C replacement decision trees, control-conversion kits, Air Command spec
     table); legacy-map v2 candidates once a storage rule for the wildcard patterns is decided.
   - Tests: `tests/test_thetford_eu_and_dometic_wh.py`.
-- 27 Nov ~09:20 run (session_017XuwiLAuZNuf7cwtm4tBN9): no new PDFs in Drive since 06:55. 32 files: 28 done, 4 held; 65 new
-  parts, no cross-maker links.
+- 27 Nov ~09:20 run (session_017XuwiLAuZNuf7cwtm4tBN9): no new PDFs in Drive since 06:55. 61 files: 53 done, 8 held; 359 new
+  parts (Dometic 65, Lippert 294), 25 Lippert supersession claims, no cross-maker links.
   - `scripts/aftermarket_pdf/dometic_coolfreeze_parts_list.py` — Dometic LLC (Waeco) CoolFreeze CF parts list 3312482.023
     (Index | Part Number | [Model] | Description; "CF-035AC110 = A" legends with A / B / -- marks; "fits serial numbers:"
     ranges and "(same p/n as above)" rows folded into the row above as qualifiers; "*" = WAECO branded units, "**" picture
@@ -362,3 +362,19 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     heading as the description. Fiamma 2025 (14 splits) still `new`: check its number set against 2024/2026 the same way first.
   - Thetford_General_spares.pdf (104 pp, Thetford Part No. | Grove Part No., no publisher printed) held with the
     Grove-numbered distributor lists.
+  - Fiamma 2025 (13 splits): 2597 numbers, all but 98673-365 already loaded from 2024/2026 -> 12 done, pp 001-009 held with the
+    2009 callouts for that one number.
+  - `scripts/aftermarket_pdf/lci_ccd_noqty.py` — Lippert CCD lists with no Quantity column ("Callout | Part # (or Kit #) |
+    Description"): text-line pass vs word-position pass, agreed rows only ("all_rows_agree" says whether one-pass rows were
+    left out: wrapped descriptions, a callout cell with two numbers). "*" numbers are loaded only on a page that prints
+    "*Part must be replaced using variant code" (note kept in the description); an empty trailing "-" Measurements cell is
+    dropped. Used for CCD-0008624, 0002690, 0002709, 0002666, 0001966, 0001602, 0007723, 0004465, 0002589, 0002688 (source
+    `lippert-ccd-component-lists`). JT's Strong Arm (with a Quantity column) still reads with `lci_ccd_list.py`.
+    Test: `tests/test_lci_ccd_noqty.py`.
+  - Lippert "(OBSOLETE - Use N)" / "(Obsolete: Replace with N)" notes in agreed rows -> legacy-map v2 lane (scope
+    `manufacturer_supersession_chart`, extraction `lci-ccd-obsolete-note-v1`): 18 pairs over 5 CCDs. LIP Sheet 0280 (through-
+    frame slide-out inner tube revision) "Old w/ Rear Roller -> New w/ Wear Tab" table: 7 pairs ("100% interchangable"), the
+    5 new-only arm assemblies and the 3 page-1 components through a small drop.
+  - Held: Lippert IDO-484 (Print-to-PDF scan, OCR); Lippert Premium Axle and Suspension Parts Catalogue 2025, 2 splits
+    (multi-layout: retail clamshell tables, Part # | Item # | Description | Qty wheel-end tables, product pages). CCD-0010172
+    (Gen I -> Gen II jack procedure) names no part pairs -> done, nothing to load.
