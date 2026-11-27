@@ -472,3 +472,32 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     after numbers such as 140-2105C are service intervals), Air Lift Load Support Application Guide (2 splits; p 10-11 service parts are a
     supplied-lane candidate), Horizon Global Towing & Trailering 2022 Application Guide (5 splits; multi-layout catalogue, no Horizon Global
     brand in the DB yet; ModuLite 119147 "(Replaces 119179)" etc. on split pp 126-250 PDF p61 = same-maker supersessions).
+- 27 Nov ~11:19 run (session_017XuwiMBAChqhVFCTEkQZJ1): no new PDFs in Drive since 06:55 (nothing registered). Re-checked held files:
+  4 done (claimed from `held` by setting status `claimed` with this session id), 2 re-held with layout notes. 246 new Dometic parts
+  (RM2351 48, Wedgewood 33 series 75, Wedgewood 35 series 27, Brisk Air 579 96), 140 existing parts evidenced. No cross-maker links (all
+  own-maker lists; every held cross-reference file still waits on one of Larry's decisions: third-party tier, Peterson/Grote scope,
+  Zip Dee publisher, Lippert-printed Thule numbers).
+  - `scripts/aftermarket_pdf/dometic_llc_index_list.py` — Dometic Corporation US-format refrigerator PARTS LIST (RM2351 form 3311745.000):
+    Index No. | Part No. | A | B | Description with the "Model RM2351 Prod # 921145039 = A" key printed above or below the table ("--" =
+    not for that Prod #, kept as "[applies to: ...]"). Pass A text lines from the "Only Those Parts ..." line (the key lines can come after
+    the table in text order), pass B word boxes by header columns. Source `dometic-us-refrigerator-parts-lists-drive-supplied` (new).
+  - `scripts/aftermarket_pdf/wedgewood_range_matrix.py` — Atwood / Wedgewood range & slide-in cooktop "Parts Drawing & List" matrices
+    (33 and 35 series): 3-row header (WEDGEWOOD/ATWOOD, RV/CV/RA/CA, 1733/2133/33 -> "Wedgewood RV 1733" ...), cells vertically centred in
+    ruled rows. Pass A pymupdf dict lines (blank cells are printed as whitespace-only lines, so each row is exactly one line per model
+    column; a line that starts with 3+ spaces or right of the indent is a variant only), pass B row bands from the drawn horizontal rules +
+    word boxes (variant = a segment that starts right of the indent after a > 12 pt gap). Variant-only rows take the description above.
+    Numbers printed on rows that differ only by serial-break notes are stored without the notes. Source
+    `atwood-range-cooktop-manuals-drive-supplied` (publisher Dometic per the Atwood alias). 35-series 18B/18C print only "Center Front" /
+    "Right Rear": names say they are listed after 18A "Burner Tube - Left Rear" (`name_correction` audit events).
+  - `scripts/aftermarket_pdf/dometic_model_matrix_list.py` — Dometic (Duo-Therm) roof A/C parts lists with rotated model columns (Brisk
+    Air 579 series 3308714.025): Index | Description | Part No. | a mark or a dash per model | "**" discontinue / "##" start date. Marks are
+    applicability only (the 579 list prints "G H" under the 57915.631/.731 columns on one row). Descriptions start ~9 pt left of their
+    header. NOTE blocks and the "Customer Options (Required / Not Required)" tables (two unit-family columns, "----" = not offered) are read
+    with pymupdf words vs pdfplumber words. Source `dometic-ac-parts-lists-drive-supplied`. Candidate for the other Dometic roof A/C lists
+    with model matrices.
+  - Supplement drops under an existing name: after pushing new bytes, raw.githubusercontent.com served the old file for ~5 minutes; wait
+    until it serves the new bytes, then set the drop back to `queued` (rows with new `n` values load; existing rows are kept).
+  - Tests: `tests/test_dometic_matrix_readers.py`.
+  - Roadmaster Falcon / Sterling All Terrain tow bar component lists re-checked and re-held with layout notes (two text columns, dotted
+    leaders glued to numbers, sub-entries without callouts, Falcon item 6 text layer clipped; Sterling 9 "replaces obsolete ... 200680-00
+    and 654303" = same-maker supersession). Roadmaster is not a manufacturer in the DB yet.
