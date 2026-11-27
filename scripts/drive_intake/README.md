@@ -68,6 +68,14 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   (test: `tests/test_atwood_part_reference.py`, source `atwood-2007-rv-appliance-service-parts-manual`, publisher
   Dometic per the Atwood alias).
 
+- `scripts/aftermarket_pdf/atwood_range_parts.py` — Atwood range / cooktop "Parts Identification" tables (ITEM /
+  DESCRIPTION / one 5-digit number per model column, e.g. Model 21 manual, page 8 two-up spread). Pass A text lines
+  (item line, description, numbers; un-numbered description lines continue the item), pass B word boxes with the
+  model columns read from the one or two header rows ("RA" over "1721 2121" -> "RA 1721"). TBD and diamond cells are
+  skipped; each row's section names the model columns it is printed under (test: `tests/test_atwood_range_parts.py`,
+  source `atwood-range-cooktop-manuals-drive-supplied`, publisher Dometic). Candidate for the range/oven matrices in
+  the Atwood 2007 manual split pp 001-093.
+
 ## Drop mechanics (learned 27 Nov)
 - `supplied_document_rows_v1.number` must match `^[A-Za-z0-9][A-Za-z0-9./-]{1,39}$` (no spaces).
 - `supplied_drops_v1.url` must be the `.../supplied-drops/<name>.b64` branch URL; when re-pushing a corrected drop
@@ -89,6 +97,12 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   numbers against their own: hold them for the third-party tier decision unless the maker of the part itself
   states the replacement. Same for the "AL-KO Spare Parts" list with a Grove No. column (Grove Products, UK) and the
   AL-KO Australia "Genuine Dexter Parts" sheets (AL-KO stock numbers against Dexter numbers).
+- 27 Nov ~02:30 run: "Coleman Air Conditioner - RV Replacement Parts Guide" is section Q of a distributor catalogue
+  (ORDER # = distributor stock numbers; Coleman-Mach numbers only in "(S/O ...)" notes) -> held with the distributors.
+  Same-maker "takes place of" kit sheets (Coleman-Mach 1976-532) go to the legacy-map v2 lane with the rewiring
+  condition and kit contents as qualifiers. Cummins Onan parts manuals (0983-0201, 0981-0200, 981-0246) are
+  copy-restricted (AES, owner password) -> held. CURT 2024 catalogue (4 splits): multi-layout, application guides are
+  fitment -> held for dedicated readers.
 - Check `pymupdf.Document.permissions` before reading: a PDF whose owner password forbids copying/extraction
   (e.g. Dexter "AL-KO Genuine Parts by Dexter" cross reference, 27 Nov) is held for Larry's decision, not read.
 
