@@ -32,10 +32,13 @@ Folders watched (Drive folder ids):
 - **Distributor catalogues count as a source.** Handling: a maker's number printed under that maker's name / column with a
   description -> supplied-documents lane as that maker's part (source metadata kind `distributor_catalogue`,
   `printed_publisher` = the distributor); a distributor's own stock number is never a part; a statement that one maker's part
-  replaces another maker's part -> stage in `aftermarket_assertions_v1` against a source whose metadata kind is
-  `distributor_pdf` and HOLD it ("distributor tier: waits for the seller-stated PDF publisher"). That publisher
-  (`publish_distributor_pdf_v1`: seller-stated tier, existing parts only, exact number match, like the store lane) was drafted
-  but NOT applied: the migration was refused by the session's permission check and needs Larry's explicit go-ahead.
+  replaces another maker's part -> stage in `aftermarket_assertions_v1` (relation `replaces`, `aftermarket_maker` /
+  `aftermarket_number` = the replacing part as printed, `oem_brand` / `oem_number` = the replaced part, qualifiers as usual)
+  against a reviewed page of a `sources` row whose metadata kind is `distributor_pdf` and whose publisher is the distributor.
+  `rv_private.publish_distributor_pdf_v1()` (migration `20261127133000_distributor_pdf_seller_tier_v1`, applied on Larry's
+  "apply" 27 Nov ~12:55; cron `rv-distributor-pdf-v1` every 10 min; you may call it) publishes them in the seller-stated tier
+  (kind `third_party_compatibility`, state `seller_stated`, "Distributor-stated, not verified by either manufacturer"), only when
+  BOTH parts already exist with an exact number match; rows whose parts are missing stay staged and are retried.
   The 57 distributor-held files were moved back to `new` at priority 70 with this note.
 - **Zip Dee is the publisher of the Zip Dee sheets** (manufacturer `Zip Dee` added; 76 new parts). **Lippert-printed Thule numbers
   are Thule evidence** (source `lippert-ccd-thule-numbers-drive-supplied`, publisher Thule, printed by Lippert).
