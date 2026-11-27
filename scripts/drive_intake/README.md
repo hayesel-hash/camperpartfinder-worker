@@ -781,3 +781,22 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     p107 end with unlabelled 6-digit numbers after the AL-KO types (220094, 299230, ...): not loaded (unlabelled, like Coast's Suburban
     numbers). Valeryd-branded LED marker lamps (split pp 201-220, pdf pp 1-15, ~80 numbers) wait for a reader: the product headings sit
     below the colour-variant tables in the text layer and p12 mixes an Aspöck Flatpoint II (3176020) into the Valeryd table.
+- 27 Nov ~16:19 run (session_017XuwiLq4V9DRRSMaMW1iPV): no new PDFs or CSVs in Drive since 15:37 (Michael's folder: messages 13 from
+  Michael's ChatGPT, 13 from Michael's Claude and 14 answered with 15 and 16). With nothing new, the run went back to held files: the
+  four Thetford European cooker lists (Caprice SOH72XXX, Enigma SOH46, Triplex SOH76XXX / SOH77XXX) are now partly published,
+  116 numbers loaded, **79 new Thetford parts** (SSPA / SSPO numbers), 37 existing evidenced. No cross-maker links (Thetford's own lists).
+  - `scripts/aftermarket_pdf/thetford_cooker_lines.py` — line reader for those cooker tables (No. | Description | Spare part number x2 |
+    Colours available). thetford_eu_spare_list.py's cell geometry was right but sub-rows lost their item name, italic words came out of
+    order and "≥" is printed as ">" plus a separate underline drawing. This reader: baselines; description = x-sorted Description words on
+    the number's own line; a line without an item number is a sub-row prefixed with its item ("Oven burner: Production date: < 31-07-21
+    (E212Y…)"); a numberless bold line inside an item is a sub-heading for the rows below (Triplex SOH76 item 8 "Production date: ≥
+    25-06-2012"); variant lines under an item line that has its own number are not sub-rows; ">" / "<" with a short rule right under its
+    own glyph box -> "≥" / "≤" (partial underline -> held); second number column only with its sub-heading ("[For lid shut off]");
+    remarks in the other number column kept ("[Use 800W version]"). Held: grey struck words in a description, number with no
+    description on its line (merged kit cells), words printed under the number in its cell (dates), a number printed with two
+    descriptions, and a number any occurrence of which only one pass read. Pass A pymupdf words / span colours / drawings, pass B
+    pdfplumber words (x_tolerance 2.5; at 1.5 it splits "SSPA0 040") / char colours / lines + rects. Door and knob tables are not read.
+    Drops e223704f46329030, d1a5c19cb7db202f, cbd2bf95a001022c, 71dca2ec74ac7ca9 (source `thetford-eu-spare-parts-lists-drive-supplied`,
+    key `drops-2026-11-27-intake-lq4v`, encrypted server-side as in the 15:19 run). Test: `tests/test_thetford_cooker_lines.py`.
+  - The drop ciphertext came back through a padded `select` (an extra `repeat('.', 20000)` column) so the result is saved to a file and
+    the base64 is never retyped; the plain SHA-256 from the database is compared with the local JSON's before pushing.
