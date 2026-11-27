@@ -14,6 +14,14 @@ applicability only (not stored). Rules:
   line is not a section heading ("SHROUDS:") and the line above it is not part of the same cell (a 3-line description is held);
 - the upper-case section heading above ("CAPACITORS:") follows the description in brackets ("Fan (5-Mfd/370V) [Capacitors]");
   a description that starts with "(" ("(Ivory) With Decals") is a variant line of a longer cell and is held.
+Pages 13-15 (printed 564-566, "9000 SERIES COLEMAN CEILING ASSEMBLIES" / "COLEMAN CEILING ASSEMBLY NUMBERS"): "X-Reference" on
+these pages is only the section-tab list in the page header, not a cross reference. The tables are INDEX # | PARTS DESCRIPTION |
+ORDER # [| MFG #] | one bullet column per ceiling assembly. Coleman-Mach's number is the MFG # cell (page 564, "#" prefix
+dropped) or the number right after "S/O" in the ORDER # column (pages 565-566); rows with only a distributor ORDER # or "NLA"
+have no Coleman number and are skipped. Description = the PARTS DESCRIPTION words on the same baseline + "[9000 Series Coleman
+ceiling assemblies]"; a description with unbalanced brackets ("Vane (White") is a misprint and is held; a 4-3 number
+("9330-305") printed with the same description as a longer number that starts with it ("9330-3051") is held; bullets are
+applicability only (not stored).
 Pass A pymupdf words, pass B pdfplumber words; only rows both passes give identically are kept.
 usage: python3 -I coleman_so_quick_reference.py <pdf> <out.json>
 """
@@ -46,7 +54,57 @@ def baselines(ws):
     return [(b, sorted(r, key=lambda w: w["x0"])) for b, r in rows]
 
 
+CEIL_NUM = re.compile(r"^#?([0-9]{4}[-A-Z][0-9]{3,4})$")
+CEIL_SECTION = "9000 Series Coleman ceiling assemblies"
+
+
+def read_ceiling_page(ws, text):
+    """INDEX # | PARTS DESCRIPTION | ORDER # [| MFG #] tables under COLEMAN CEILING ASSEMBLY NUMBERS. The description words
+    of a row sit up to ~2.5 pt off the number's baseline (page 566), so a row is the number's baseline +- 3.5 pt (rows are
+    ~17 pt apart)."""
+    lines = baselines(ws)
+    hdr = next(((b, ln) for b, ln in lines if any(w["text"] == "INDEX" for w in ln)
+                and any(w["text"] == "ORDER" for w in ln)), None)
+    if not hdr:
+        return [], [{"why": "no INDEX / ORDER header on a ceiling-assembly page"}], []
+    hb, hln = hdr
+    parts = next((w for w in hln if w["text"] == "PARTS"), None)
+    order = next(w for w in hln if w["text"] == "ORDER")
+    mfg = next((w for w in hln if w["text"] == "MFG"), None)
+    if parts is None:
+        return [], [{"why": "no PARTS DESCRIPTION header"}], []
+    d_lo = parts["x0"] - 36
+    body = sorted((w for w in ws if w["bottom"] > hb + 2), key=lambda w: (w["bottom"], w["x0"]))
+    rows, held = [], []
+    for w in body:
+        m = CEIL_NUM.match(w["text"])
+        if not m:
+            continue
+        so = [x for x in body if x["text"] == "S/O" and abs(x["bottom"] - w["bottom"]) <= 1.5
+              and 0 <= w["x0"] - x["x1"] <= 8 and x["x0"] >= order["x0"] - 15]
+        in_mfg = mfg is not None and abs(w["x0"] - mfg["x0"]) <= 15
+        if so:
+            cut = so[0]["x0"]
+        elif in_mfg:
+            left = [x for x in body if abs(x["bottom"] - w["bottom"]) <= 1.5 and order["x0"] - 15 <= x["x0"] < w["x0"]]
+            cut = min([x["x0"] for x in left] + [w["x0"]])
+        else:
+            continue  # assembly header numbers over the bullet columns
+        num = m.group(1)
+        dw = sorted((x for x in body if abs(x["bottom"] - w["bottom"]) <= 3.5 and x["x0"] >= d_lo and x["x1"] < cut - 2),
+                    key=lambda x: x["x0"])
+        desc = sp(" ".join(x["text"] for x in dw))
+        if not desc:
+            held.append({"number": num, "why": "no description on the number's row"}); continue
+        if desc.count("(") != desc.count(")"):
+            held.append({"number": num, "why": "description with unbalanced brackets (misprint)", "text": desc}); continue
+        rows.append({"number": num, "desc": f"{desc} [{CEIL_SECTION}]"})
+    return rows, held, []
+
+
 def read_page(ws, text):
+    if "COLEMAN CEILING ASSEMBLY NUMBERS" in text:
+        return read_ceiling_page(ws, text)
     if not re.search(r"COLEMAN(-MACH)?\s+AIR\s+CONDITIONER\s+PARTS", text):
         return [], [], [{"why": "page names no Coleman heading"}]
     lines = baselines(ws)
@@ -119,6 +177,11 @@ def main(pdf, outp):
     for pg, r in keep:
         names.setdefault(r["number"], set()).add("".join(r["desc"].split()).casefold())
     conflict = {n for n, v in names.items() if len(v) > 1}
+    short = {n for n in names if re.fullmatch(r"[0-9]{4}-[0-9]{3}", n) and any(
+        o != n and o.startswith(n) and names[o] & names[n] for o in names)}
+    held += [{"number": n, "why": "4-3 number printed with the same description as a longer number starting with it"}
+             for n in sorted(short)]
+    conflict |= short
     sections = {"0": "Distributor Parts Quick Reference, section Q (printed pp 552-567): Coleman-Mach air conditioner parts, "
                      "special-order (S/O) numbers"}
     lines, seen, per_page = [], set(), {}

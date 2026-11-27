@@ -668,3 +668,36 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     flagged for review in the register row; not merged.
   - Keystone advisory 21-214 (approved replacement regulators for the recalled Winn-Tec 6020) and the Powrtouch NZ retailer list
     ("Vendor Code" column, no maker named) stay held for Larry. Tests: `tests/test_dexter_v124_movera_readers.py`.
+- 27 Nov ~14:19 run (session_017XuwiKsq9J2HCbJkKwUc82): no new PDFs or CSVs in Drive since 12:57. Michael's folder: messages 05 (Michael's
+  ChatGPT: source-only boundary set by Michael, one new JLS Distribution Thule/Omnistor web lead) and 06 (Michael's Claude: no new CSVs,
+  asks which Lane B maker PDFs we want) answered with 07 and 08; no new files, so no Results rows. 12 files: 7 done, 5 held. 122 new parts
+  (Coleman-Mach 18, Fiamma 54, Thule 20, Truma 30), ~520 existing parts evidenced; no cross-maker links (distributor catalogues only).
+  - Dexter V1-24 splits pp 388-451 and 452-516: no GENUINE DEXTER / DEXTER headings (dexter_v124_tables.py: 0 rows). pp 388-451 done (no
+    table names the maker of its PART # numbers); pp 452-516 held only for the Dutton-Lainson / Fulton T-winch tables (BRAND column per
+    row, ~32 rows) = per-row maker support.
+  - Coleman section Q "X-Reference" pages 13-15: "X-Reference" is just the section-tab list in the page header. The pages are 9000-series
+    ceiling-assembly parts tables; `coleman_so_quick_reference.py` now reads them (`read_ceiling_page`: Coleman number = MFG # cell or the
+    number after "S/O" in ORDER #; description from the number's row band +-3.5 pt because page 566 prints descriptions ~2 pt below the
+    numbers). Supplement drop 1d36332bfe44360d (n 201+): 18 new Coleman-Mach parts. Held: 9330-3551 (two descriptions), "Vane (White"
+    misprint, 9330-305 / 9330-306 (p13 short prints beside 9330-3051 / 9330-3061 with the same description).
+  - RV Designer "dealer hardware" excerpt re-checked: JR Products (~105 five-digit numbers, none in the DB) and RV Designer (96 of its
+    numbers already in the DB) under block headings in 2-3 columns -> held for a heading-geometry reader + per-row maker support.
+  - `scripts/aftermarket_pdf/berger_hersteller_tables.py` — Fritz Berger Ersatzteil-Katalog 2017-2018 (German, 8 splits): "Pos. |
+    Berger-Nr. | <MAKER>-Nr. | Artikel-Bezeichnung" (maker named in the column header). Pass A: each table row is ONE pymupdf span,
+    cells split on runs of 2+ spaces; wrapped descriptions are their own span padded with leading whitespace. Pass B: pdfplumber words by
+    the header columns. Lessons: (1) pymupdf and pdfplumber coordinates differ on some pages (crop box), so each pass uses its own
+    geometry; (2) a table in the other page column bounds a table only if it started above the line and lies > 120 pt to the right;
+    (3) "bitte Pos. 3 mitbestellen" inside a description is not a new header (a header needs "Pos." AND "Berger-Nr."); (4) headings are
+    12-16 pt bold lines grouped by BASELINE (" PRO - " spans are taller) and only the leftmost run without a > 30 pt gap: drawing callout
+    letters (S, E, T, H) are big bold too and sit on heading baselines; a heading needs three letters in a row; Berger's own "(Nr. 116100)"
+    stock number is dropped from it. The first load of pp 035-046 / 047-069 had 74 descriptions with callout letters in the bracket:
+    corrected in place (rows, evidence quotes, 20 part names with `name_correction` audit events). `--hold-unique-shapes` (used for Truma)
+    holds a number whose digit/letter shape is unique in the split ("4000-01100"). Berger prints the same Fiamma number with different
+    words across tables (98655-434 "Endanschlagvorrichtung links" and "... rechts"): such numbers are never loaded.
+    Sources `berger-ersatzteil-katalog-2017-{fiamma,thule,truma}-drive-supplied` (kind distributor_catalogue, printed_publisher Fritz
+    Berger). Loaded the main maker per split: Fiamma pp 035-046 / 047-069 / 070-092, Thule pp 093-138, Truma pp 139-161 / 162-184.
+    Held: pp 001-023 (CADAC 38 rows, ALKO 35, Dometic 30, Comet 19, Crespo 16, Alu Line 11, Alde 10, Cobb 10: per-row maker support) and
+    pp 024-034 (Dometic). **Dometic number-format question for Larry**: Berger prints Dometic (ex-Electrolux) numbers as "2412137-00/8";
+    the DB stores Dometic's own lists as the 10 digits 2412137008 (9 of the 74 printed numbers already exist that way). Loading as printed
+    would duplicate parts; the window-pane table "Berger | Dometic Nr. | Bestellmaß mm | Glasmaß mm | Bezeichnung" is a second layout.
+    Drop key id `drops-2026-11-27-intake-ksq9`. Tests: `tests/test_berger_coleman_ceiling_readers.py`.
