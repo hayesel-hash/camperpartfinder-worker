@@ -257,6 +257,25 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   `skf_interchange.py` (dotted-leader "Mfr no. | Mfr. | Part no." index, any page), `wfco_crossref_sheet.py`
   (pdfplumber vs pymupdf words over the same table geometry; WF-5220/5320 pairs, "/" shorthand, broken numbers and
   continuation lines printed in the WFCO column are held). Helper tests: `tests/test_batch2_xref_readers.py`.
+- 27 Nov ~07:50 run (session_017XuwiLc3tgwP1DWnddbwAz): no new PDFs in Drive since 06:55. 18 files: Norcold 7 (5 done,
+  N41/N51 623424 and N61/N81 623421 copy-protected -> skipped), Dometic Seitz 6 done, Suburban 5 (4 done, water-heater
+  service manual held: Paper Capture OCR layer with errors). 476 new parts, 31 Norcold supersession claims.
+  - `scripts/aftermarket_pdf/norcold_parts_list.py` — Norcold / Thetford-NA refrigerator lists (NO. | PART # | DESCRIPTION |
+    model columns [| WARRANTABLE]). The legend differs between lists and even between pages of one list (2118 p7: "*" = not
+    available, grey = no longer available; other pages "*" = limited availability, grey = not available) -> read per page;
+    "***" footnotes kept in words; grey shading from filled rects (cell-only on 2118, whole row on N2090/N2152). One PART #
+    cell spanning two rows (692758 DOOR LATCH ; WINTER LOCK SUPPORT) keeps both texts. SUPERSEDED TO / (USE n) / "- REPLACES
+    a & b" go to the legacy-map v2 lane; a number given two different successors (2118: 636863, 633325) is held.
+    Test: `tests/test_norcold_parts_list.py`.
+  - `scripts/aftermarket_pdf/seitz_spare_parts.py` — Dometic Seitz DOK window / rooflight sheets. "BG 1517" stored as BG1517
+    (the sheets print both); placeholders ("BG1086...", "IRE05..."), alternatives ("FM80/82") and other spaced codes are
+    reported, not loaded; a number printed for two different rows on one page (S6 BG1078 right and left handle) is held.
+    Test: `tests/test_seitz_spare_parts.py`.
+  - `scripts/aftermarket_pdf/suburban_parts_table.py` (IW60 / SFV ruled tables, reuses the Norcold geometry helpers) and
+    `suburban_catalogue.py` (2025 aftermarket catalogue stock-number lines; furnace core cross reference -> 11 cores named
+    "Furnace core replacement [models: ...]", NTP-STAG distributor numbers not loaded). The catalogue's "Dometic/Atwood Style
+    Replacement Panel" and "only direct replacement for 6-gallon Atwood/Dometic water heaters" name no Dometic/Atwood part
+    number -> no links. Test: `tests/test_suburban_literature.py`.
 - Norcold N1095 (624870) is copy-protected -> skipped. N2090, N2152 and 2118 PolarMax were claimed and released
   unprocessed with layout notes (NO. | PART # | DESCRIPTION | X model columns; vertically centred numbers; SUPERSEDED TO
   notes; shaded = NOT AVAILABLE); 105 of their 267 numbers are already Norcold parts.
