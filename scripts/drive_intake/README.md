@@ -125,6 +125,19 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   Elixir, Heng's, 1995+ Jensen) with no OEM numbers: Ventmate identities loaded, no replacement links (fitment).
   Automatic Distributors (Autodist) 2016 trailer catalogue (4 splits): PART # (distributor stock) / MFG # (unnamed
   maker) with prices -> held with the distributors.
+- 27 Nov ~04:20 run: Dexter "Trailer Parts & Accessories" catalogue V1-24 (dexterindex.com, 8 splits, 516 pages) is
+  Dexter's branch/distribution catalogue: every table is PART # / REF # (branch stock number) / DESCRIPTION, but it is
+  multi-brand and only ~48 of ~570 tables in pp 1-387 have a "GENUINE DEXTER" / "DEXTER" heading (others: TRAILER
+  PARTS PRO, ROCKWELL AMERICAN, "KODIAK AND DEXTER", "FITS AL-KO ...", or no maker printed). The last split's
+  "PART # INDEX" gives page numbers only (no description, no maker), so it is not an identity source like the CURT
+  index. All 8 splits held with the distributors; a reader would keep only Dexter-headed tables (watch the duplicated
+  K08-249-1G on printed B12/B13, listed once as idler hub and once as hub-drum).
+  "Dexter and Kodiak - Trailer Brake Parts Catalogue" is really "Section C Brake Assemblies" of a distributor
+  catalogue branded "TRAILER REPAIR PARTS" (PART NO. / REF. NO.) -> held with the distributors. Keystone RV safety
+  advisory 21-214 (approved replacement regulators for the recalled Winn-Tec 6020) is an RV builder's statement about
+  other makers' regulators -> held for the third-party tier decision. PB442, PB461 and PB509 are copy-restricted
+  like the other Dexter bulletins. Kodiak 2019 disc brake catalogue (3 splits, 44 pages): multi-layout kit / caliper /
+  bracket tables -> held for a dedicated Kodiak reader.
 
 ## Conversion kits (relation `replaces_with_kit`, claim kind `conversion_kit_replacement`)
 Approved by Larry, 26 Nov 2026 23:15. Use when a maker says its part/unit replaces another only
