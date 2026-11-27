@@ -763,3 +763,21 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     'UTF8') plain) ... select replace(encode(iv || extensions.encrypt_iv(plain, key, iv, 'aes-cbc/pad:pkcs'),'base64'), E'\n','')`, with a
     round-trip `decrypt_iv(...) = plain` check and the local JSON's SHA-256 compared with `sha256(plain)`. The base64 is written to
     `<sha16>.b64` on the supplied-drops branch as before (key id `drops-2026-11-27-intake-nedr`). Same format, so ingest is unchanged.
+- 27 Nov ~15:49 run (session_017XuwiM7fN89YmBWNBoVGFj): Michael's ChatGPT uploaded the rest of the Valeryd 2022 catalogue at ~15:36
+  (message 13: 297 pages in 15 splits, original https://af.valeryd.se/pdf/valeryd_katalog_2022_swedish.pdf, 33,794,567 bytes); splits
+  pp 201-220 ... 281-297 registered (family `valeryd`, oem_parts_list, priority 50). No other new PDFs or CSVs in Drive. All 15 Valeryd
+  splits processed: 45 new Valeryd parts, no cross-maker links (the catalogue has none that can publish).
+  - `scripts/aftermarket_pdf/valeryd_brake_shoe_tiles.py` — Valeryd catalogue brake-shoe tiles (printed pp 14-18): "Art.Nr.: <7 digits>[A|XL] /
+    <brake type(s)> / Storlek: <size>". Pass A pymupdf blocks, pass B pdfplumber words per tile column (column = up to the next
+    "Art.Nr.:" anchor on the same baseline; p18 has 4 columns, the others 3). The red ~14 pt SUPERKIT badge is drawn twice and glues onto
+    the number in pdfplumber ("5010206XLSSUUPPEERRKKIITT", top 10 pt higher): chars >= 12 pt are filtered out before extracting words.
+    Valeryd states it makes its brake shoes (p7), so only these are loaded (manufacturer `Valeryd` added; source
+    `valeryd-katalog-2022-brake-shoes-drive-supplied`, drop fb2d4e2cd9d4d2d8, key `drops-2026-11-27-intake-m7fn`). The brake types
+    (AL-KO 1637, KNOTT 20-2425/1 ...) are fitment and stay in the description. Test: `tests/test_valeryd_brake_shoe_tiles.py`.
+  - Not loaded, held for Larry: every other Valeryd article number (components, drums, dampers, couplings, lamps): the catalogue does not
+    say Valeryd makes them and many are other makers' products (AL-KO AK7 heads, Winterhoff, Aspöck, Jokon) sold under Valeryd numbers
+    with no maker number printed. The only original-number line in 297 pages: split pp 81-100 pdf p14 (printed p94) "2380033
+    Påskjutsdämpare Al-Ko 131R/161S Ausf. B/C, ab Bj. 1993; Original 583528" (AL-KO 583528 not in the DB). Hand-brake levers on printed
+    p107 end with unlabelled 6-digit numbers after the AL-KO types (220094, 299230, ...): not loaded (unlabelled, like Coast's Suburban
+    numbers). Valeryd-branded LED marker lamps (split pp 201-220, pdf pp 1-15, ~80 numbers) wait for a reader: the product headings sit
+    below the colour-variant tables in the text layer and p12 mixes an Aspöck Flatpoint II (3176020) into the Valeryd table.
