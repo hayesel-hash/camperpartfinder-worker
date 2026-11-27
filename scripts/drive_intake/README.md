@@ -343,3 +343,22 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     with wildcard numbers like 834(XX)YY.400, A/C replacement decision trees, control-conversion kits, Air Command spec
     table); legacy-map v2 candidates once a storage rule for the wildcard patterns is decided.
   - Tests: `tests/test_thetford_eu_and_dometic_wh.py`.
+- 27 Nov ~09:20 run (session_017XuwiLAuZNuf7cwtm4tBN9): no new PDFs in Drive since 06:55. 32 files: 28 done, 4 held; 65 new
+  parts, no cross-maker links.
+  - `scripts/aftermarket_pdf/dometic_coolfreeze_parts_list.py` — Dometic LLC (Waeco) CoolFreeze CF parts list 3312482.023
+    (Index | Part Number | [Model] | Description; "CF-035AC110 = A" legends with A / B / -- marks; "fits serial numbers:"
+    ranges and "(same p/n as above)" rows folded into the row above as qualifiers; "*" = WAECO branded units, "**" picture
+    marks dropped). Source `dometic-portable-fridge-parts-lists-drive-supplied`, drop c1f9e08b55c473ca (105 rows, 65 new).
+    Test: `tests/test_dometic_coolfreeze_parts_list.py`.
+  - Fiamma: the 12 "Spare Parts Catalogue 2026" splits (source.txt original 7d4f7cb4..., fiammaexpert.com) and the 15
+    "Fiamma_2024_spare_parts" splits (number set = the fiammausa.com 2024 load 77cd0ec4...) are copies of catalogues loaded in
+    full on 18-19 Nov -> done, nothing new. Quick duplicate check without pasting thousands of numbers: compare per-prefix
+    md5s of the sorted number sets (`left(number,6)`, `md5(string_agg(number, ',' order by number collate "C"))` on
+    `rv_read.parts where sha256=...`) with the same computed locally from the splits' text layers. Only footnote-marked
+    prints differ (02426A09A*, 98660-249*/250*/251*, 98655-941(Top), 08455-01P-, ...): a footnote-aware reader could add ~10.
+  - Fiamma 2009 (3 splits) held: 570 of its 848 numbers are not in the DB, but the catalogue (like all Fiamma spare-parts
+    catalogues) is exploded drawings with callouts only, no part names, so the supplied lane has no description to load.
+    Needs the lane that loaded 2024/2026 (page + position evidence, placeholder names) or Larry's OK to use the drawing
+    heading as the description. Fiamma 2025 (14 splits) still `new`: check its number set against 2024/2026 the same way first.
+  - Thetford_General_spares.pdf (104 pp, Thetford Part No. | Grove Part No., no publisher printed) held with the
+    Grove-numbered distributor lists.
