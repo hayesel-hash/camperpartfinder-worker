@@ -532,3 +532,18 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     numbers on split pp 46-83 are not in the DB). The p 67 / 69 "Parts Identification" text layer prints the while-supplies-last symbol
     as a trailing "a" (53198a) and obsolete cells as "52634OBS"; wedgewood_range_matrix.py finds no header on pp 65 / 71 even with
     upper-case ITEM / DESCRIPTION allowed.
+- 27 Nov ~12:19 run (session_017XuwiPbS2EkJuxdRuDmsyT): no new PDFs in Drive since 06:55 (the Michael intake folder got six etrailer /
+  Kwikee "xref.csv" files at 12:18: CSVs of retailer pages, not catalogue PDFs -> not registered). Re-checked 2 held Dometic/Atwood
+  water-heater files: 1 done, 1 partly published and re-held. 57 new Dometic (Atwood) parts, 29 existing evidenced, 2 supersession
+  claims; no cross-maker links (every held cross-reference file still waits on one of Larry's decisions).
+  - `scripts/aftermarket_pdf/dometic_wh_training_tables.py` — Dometic water-heater training slides (PowerPoint, Dec 2019): two-up ruled
+    tables "Model / Part # | Water Heaters / Replacement Tanks / Description | Status". Pass A find_tables cells, pass B word boxes in
+    the row bands between drawn rules (tank cells are top-aligned, so number-anchored bands pick up the next row). Tank rows named
+    "Replacement tank: <models printed in the cell>". Status codes (A, K, AS, B (8)) have no legend -> not loaded. 91514 is printed
+    for a 6 gal Colonial White and a 10 gal Beige door -> not loaded. Source `dometic-water-heater-service-kit-lists-drive-supplied`.
+  - `scripts/aftermarket_pdf/atwood_wh_part_reference.py` — Atwood 2007 manual "Electronic Water Heaters REPLACEMENT PART REFERENCE"
+    (split pp 001-093, pages 46-47): "[callout] NNNNN description" with continuation lines after the check marks in text order and
+    bold-italic "No Longer Available (Use N)" notes across the model columns (moved to the end of the description; the pairs go to
+    the legacy-map v2 lane, extraction `atwood-wh-part-reference-nla-note-v1`). Model applicability not stored. The pilot
+    water-heater pages 42-43 match the fingerprint but descriptions wrap onto 2-3 lines beside the number there, so the word pass
+    disagrees; read only 46-47 (range argument). Test: `tests/test_atwood_wh_readers.py`.
