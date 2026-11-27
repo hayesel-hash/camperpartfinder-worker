@@ -103,6 +103,33 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   (test: `tests/test_dometic_parts_list.py`, source `dometic-ac-parts-lists-drive-supplied`). First use: 620315.421,
   B3200 3253.334C, 630515.321 heat pump. Candidate extension: the header-less right column and the option boxes.
 
+- `scripts/aftermarket_pdf/dometic_spare_parts_list.py` — Dometic (ex-Electrolux) "Spare parts list" PDFs (pdf-tools
+  layout): "Exploded view no." pages with a Matrix table (letter | PNC | ELC | ProdDate | Model) and Pos | Part No. |
+  Matrix | Description rows. Pass A text lines (matrix tokens may share the line with the description), pass B word
+  boxes by header column; continuation lines ("< 0923..." production-date qualifiers) kept; Pos "-" rows read; rows
+  whose matrix does not cover every PNC get "[applies to: <model> <PNC>, ...]". Numbers stored as printed (Dometic's
+  "add a 0 in front" ordering rule not applied) (test: `tests/test_dometic_spare_parts_list.py`, source
+  `dometic-spare-parts-lists-drive-supplied`). First use 27 Nov: DM2652, RM1350, RM2820, RM3762, RM8501, RMD8555,
+  RML8330, RML8555 fridges and CTLP3050/CTS3110 cassette toilets (918 rows, 601 new parts).
+- `scripts/aftermarket_pdf/lci_ccd_model_list.py` — Lippert/Furrion CCD documents whose table is Callout | Part # |
+  Description | Model (vertically centred model cells; "N/A" numbers skipped); model applicability kept as
+  "[models: ...]" (source `lippert-ccd-component-lists`, publisher Lippert: the Furrion manual titles the numbers
+  "LIPPERT PN"). First use: Furrion 2.4GPM tankless water heater CCD-0009617 (31 parts).
+- `scripts/aftermarket_pdf/dometic_parts_web.py` — short Dometic NA A/C service-part tables (Dometic Parts Web exports:
+  Pos | PartNo | Qty | Description | Specification; PowerPoint sheets: ID | SERVICE PART | DESCRIPTION), numbers like
+  3315332.000 (source `dometic-ac-service-part-sheets-drive-supplied`). First use: Penguin II 641935, Brisk II B59516.
+- `scripts/aftermarket_pdf/dometic_df_furnace.py` — Dometic DF Series furnace Service Parts List form 33402: SCV_KIT is the
+  part number, SPI No. the exploded-view callout, X marks give the furnace sizes (kept only when both passes agree on the
+  X count). Loads 31501 and 35100, which until then existed only as NBK cross-reference targets (source
+  `dometic-df-furnace-parts-list-drive-supplied`). Tests for these three: `tests/test_drive_intake_small_readers.py`.
+- `scripts/aftermarket_pdf/thetford_us_sheet.py` — Thetford North-America one-page toilet parts sheets (Key No. | Part No. |
+  Description + Not Shown block). Number cells must sit under the "Part No." header (numbers inside "Superseded by"
+  text are not row numbers); description words go to the nearest number (cells are vertically centred); N/A rows anchor
+  and are skipped; "*" -> "(limited availability)"; italic rows = grey "Not available" shading -> "(not available)".
+  "Superseded by" rows go to the legacy-map v2 lane (`supersessions` in the output), named after the row the chain ends
+  on; numbers containing "/" (Aria T-PF.P03/B) are reported, not loaded (test: `tests/test_thetford_us_sheet.py`, source
+  `thetford-us-parts-sheets-drive-supplied`).
+
 ## Drop mechanics (learned 27 Nov)
 - `supplied_document_rows_v1.number` must match `^[A-Za-z0-9][A-Za-z0-9./-]{1,39}$` (no spaces).
 - `supplied_drops_v1.url` must be the `.../supplied-drops/<name>.b64` branch URL; when re-pushing a corrected drop
@@ -168,3 +195,11 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   gibberish) -> held for OCR; don't decode by guesswork. Camec DOORS section (catalogue pp 216-227) held for a dedicated
   reader (code - description lines, spec tables with empty cells and repeated rows). Kodiak 2019 splits pp 21-38 and
   39-44 held with pp 1-20.
+- 27 Nov ~06:19 run (session_017XuwiKsner4TF8gQhL3Z3a): batch-2 folder (1C7JQKHZ...) holds only the 00 brief so far (no
+  PDFs, no SOURCES.md). 31 files processed: 21 done (Dometic fridges/toilets x9, Dometic Penguin II, Brisk II, DF furnace,
+  Furrion tankless, Thetford US sheets x8), 10 held. Held for OCR: Dometic RM2410 106847 and RM2310 (scans), RM2193 106800
+  and ice maker 106600 (private font encoding, like 620325.421). Held for readers: Dometic RM2351 (Dometic LLC US
+  "Index No. | Part No. | A | B" layout), Modularized Brisk Air 579 3308714.025 (rotated model columns + discontinue /
+  start dates + option tables), Thetford European spare-parts-list layout (C500, C220, Caprice cooker SOH72XXX, Bravura:
+  up to three "Spare part number" columns per row). Remaining Dometic family files: RV Customer Service Replacement and
+  Training Binder, WH-6GA/WH-16GEA and WH6EA water-heater lists (not yet looked at).
