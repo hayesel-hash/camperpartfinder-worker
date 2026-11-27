@@ -612,3 +612,29 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     Drops c25d4160f1c53a69 (433 new, 103 existing) and 1c2893016b400186 (493 new, 101 existing). Candidate for the other Grove-numbered
     lists still `new` (Thetford_General_spares.pdf: Thetford Part No. | Grove Part No.; the AL-KO list with a Grove No. column).
   - Tests: `tests/test_espar_truma_grove_readers.py`. Drop key id `drops-2026-11-27-intake-ngvl`.
+- 27 Nov ~13:19 run (session_017XuwiMDDEbyg6XoszojTZX): no new PDFs in Drive since 12:23. Michael's folder: 2 new Lane B CSVs (dealer-hosted
+  catalogue extracts at pictures.dealer.com): p455 SeaLand covered (fits_model rows; Dometic 385311641 / 385310063 already parts), p315
+  Suburban held (cited web PDF could not be opened from the scheduled run: the web fetch needs a permission nobody can grant unattended;
+  the line names no maker for #110-504 / #110-509 and no brand for #3200289, and joins two numbers with "or"). Replies 03 (Michael's
+  Claude) and 04 (Michael's ChatGPT) written; both of their messages were numbered 02. 8 distributor files: 2 done with drops, 2 done
+  nothing new, 3 re-held, 1 released. 382 new parts (Thetford 152, AL-KO 230), 177 existing Thetford parts evidenced; no cross-maker links.
+  - Trailer Enterprises sections (Section C brakes "Dexter and Kodiak", axle components, Section D suspensions) re-read under the
+    distributor decision: no maker-to-maker statement anywhere. The "Electric / Hydraulic Brake Parts Replacement Chart" (Redline Trailer
+    Repair Parts logo) lists service parts per brake model column (fitment); the p39 seal table pairs RG06-0x0 / seal / "INTERCHANGE#"
+    numbers with no maker printed for any of them; Part No. cells are not labelled with a maker per row -> held.
+  - `scripts/aftermarket_pdf/thetford_grove_spares.py` — Thetford Spare Parts printed by Grove (Thetford_General_spares.pdf, 104 pp):
+    "No. | Description | Thetford Part No. Grove Part No." with the Grove number BOLD in the same cell (dropped by font). The number area
+    is two sub-columns; cells can span several item rows (kits such as "Signal white 92403111" over items 1-4, production-date blocks
+    "Before 01/07/05 ... 623064 / 628450 / 633570", colour lists over a whole sub-assembly). Baselines alone are NOT enough: "Ruby red
+    92405130" sits exactly on the "O-ring" baseline inside a 10-row kit cell. The reader takes each number's smallest filled cell
+    rectangle (pymupdf get_drawings / pdfplumber rects) and only loads numbers whose cell is one row high; multi-row cells -> "unread".
+    Drop e83e283aedc10388 (source `thetford-grove-spare-parts-catalogue-drive-supplied`): 329 numbers, 152 new, 177 existing. 335 numbers
+    not loaded (multi-row cells, wraps, 32 printed with two descriptions) -> file re-held for a multi-row-cell extension.
+  - `scripts/aftermarket_pdf/alko_grove_spares.py` — "AL-KO Spare Parts" printed by Grove (14 pp, Pos | AL-KO No. | Grove No. |
+    Description): manufacturer `AL-KO` added (as printed). Rows compared on number + description (pdfplumber splits the big heading words
+    differently; heading from pass A). Held: wraps, numbered lines under a "Pos | heading" line ("10 | Brake drum / Complete with bearing"
+    over 623748 ...), qualifier-only descriptions ("-7/95"). Drop 4ec4873c0c803170 (source `alko-grove-spare-parts-list-drive-supplied`):
+    230 new AL-KO parts.
+  - AL-KO Australia Dexter sheets: all 7 Dexter numbers already parts -> done. Coleman section Q (distributor "Parts Quick Reference"):
+    released back to `new` with reader notes (79 Coleman-Mach "(S/O nnnn-nnnn)" numbers under the COLEMAN-MACH heading, 78 not in the DB).
+  - Drop key id `drops-2026-11-27-intake-mddeb`. Tests: `tests/test_grove_thetford_alko_readers.py`.
