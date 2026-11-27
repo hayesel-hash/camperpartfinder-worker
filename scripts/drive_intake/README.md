@@ -512,3 +512,19 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   - Roadmaster Falcon / Sterling All Terrain tow bar component lists re-checked and re-held with layout notes (two text columns, dotted
     leaders glued to numbers, sub-entries without callouts, Falcon item 6 text layer clipped; Sterling 9 "replaces obsolete ... 200680-00
     and 654303" = same-maker supersession). Roadmaster is not a manufacturer in the DB yet.
+- 27 Nov ~11:49 run (session_017XuwiLbFmcYsRLTJ2rAW5H): no new PDFs in Drive since 06:55. New folder "CamperPartMatch – Michael intake"
+  (12ol5LqIt1YeJx3wDy166-Q3K6YpI4A35, created 11:27) holds only a "Source log" sheet of retailer web pages (Truma, lane A), no PDFs
+  -> nothing registered. Re-checked the 4 held SeaLand guide splits: 172 rows, 124 new Dometic (SeaLand) parts, 48 existing evidenced.
+  - `dometic_sealand_parts_list.py`: model-matrix sheets (ITEM | PART NUMBER with one column per toilet model | DESCRIPTION, guide p 57
+    EcoVac 146-149, p 72 VacuFlush 1006-1049): a number whose baseline holds only other 9-digit numbers / N/A up to a stand-alone
+    DESCRIPTION header column takes that column's words (left-aligned within 25 pt of the column; text far right is the models column:
+    p 13 "974MSD" is not a description, the "MSD fitting" text is missing from the text layer). Leading "N/A" cells are dropped (the
+    first load had published 385310137 / 385311086 as "N/A ..." names: corrected with `name_correction` audit events); descriptions
+    starting lower-case are note sentences ("322404005 and 322404008 have non vented caps.") and are dropped.
+  - `sealand_colour_conflicts.py`: the guide's colour abbreviations are compared as the full word (WHT/WHITE, BLK/BLACK, EBY/EBONY,
+    CHR/CHROME, PLAT/PLATINUM, GRAY/GREY). 18 of the 21 "conflicts" were abbreviations only; 3 real ones stay out (385310809,
+    385340177, 385345377). Test: `tests/test_sealand_matrix_rows.py`.
+  - Supplement drops under the four existing names (n 301+ on each page, key `drops-2026-11-27-intake-lbfm`, previous results kept in
+    `result.previous_load`). Only numbers not already loaded from the same split were sent.
+  - **The SeaLand splits still need OCR**: about 49 sheets across the 4 splits have no text layer (sheet text drawn as vector outlines,
+    e.g. guide p 34 "PARTS LIST: 4310 MODEL", or page images). Split 1 also waits for the model index pages (pp 3-11). All 4 stay held.

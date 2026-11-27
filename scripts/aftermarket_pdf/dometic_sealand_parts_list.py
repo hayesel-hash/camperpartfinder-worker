@@ -8,6 +8,10 @@ right-hand table's ITEM number ends up between a left-hand description and the n
 Only pages whose text contains "PARTS LIST" are read (the model index pages Model | Description | Item | Ref. List # |
 Page are not). Numbers with no description on their baseline (sheet P/N, numbers whose description is offset in the
 sheet's own layout) are reported as `orphans`, numbers of other lengths ("38311987") as `odd_numbers`.
+Model-matrix sheets (ITEM | PART NUMBER with one column per toilet model | DESCRIPTION, e.g. guide p 57 "ECOVAC
+146-147-148-149", p 72 VacuFlush 1006-1049): a number whose own baseline has only other 9-digit numbers or N/A up to the
+stand-alone DESCRIPTION column takes the words of that column on the same baseline (no model tag: the first column's
+model header is not printed on some sheets). Numbers centred between two description lines stay orphans.
 Sheets printed turned on the page with every sheet line running bottom-to-top (dir (0, -1), e.g. guide pp 17-18 "PARTS
 LIST: 300 TALL GRAVITY FLUSH TOILET") are read in the sheet's own reading frame: word boxes of the vertical lines are
 turned (x' = page height - y, y' = x) and the same baseline rule applies; pdfplumber reads those lines with
@@ -26,8 +30,42 @@ N9 = re.compile(r"^\d{9}$")
 ODD = re.compile(r"^\d{7,8}$|^\d{10}$")
 
 
+def desc_column(words):
+    """Left edge of a stand-alone DESCRIPTION header cell (model-matrix sheets: ITEM | PART NUMBER per model | DESCRIPTION);
+    None when the page has none ("PART NUMBER & DESCRIPTION" text-line sheets)."""
+    for w in words:
+        if w[4] != "DESCRIPTION":
+            continue
+        y = (w[1] + w[3]) / 2
+        before = [v for v in words if abs((v[1] + v[3]) / 2 - y) < 2.5 and v[2] <= w[0] + 1 and w[0] - v[2] < 15]
+        if not any(v[4] == "&" for v in before):
+            return w[0] - 12  # descriptions can start a few points left of the header word (guide p 57: 5 pt)
+    return None
+
+
+def matrix_desc(w, words, left):
+    """Model-matrix row: every word between the number and the DESCRIPTION column on its baseline is another 9-digit
+    number or N/A; the description is the words on the same baseline inside the DESCRIPTION column."""
+    if left is None or w[0] >= left:
+        return ""
+    y = (w[1] + w[3]) / 2
+    line = [v for v in words if abs((v[1] + v[3]) / 2 - y) < 2.5 and v != w]
+    between = [v for v in line if w[2] - 1 < v[0] < left]
+    if any(not (N9.match(v[4]) or v[4] == "N/A") for v in between):
+        return ""
+    cells = [v for v in sorted([v for v in line if v[0] >= left], key=lambda v: v[0])]
+    while cells and (N9.match(cells[0][4]) or cells[0][4] == "N/A"):  # last model column's cell reaching past the margin
+        cells = cells[1:]
+    # descriptions are left-aligned in their column; text far right of it is another column (guide p 13: the "MSD fitting"
+    # description of 385320006 is not in the text layer, and "974MSD" is the models column)
+    if not cells or cells[0][0] > left + 25:
+        return ""
+    return " ".join(" ".join(v[4] for v in cells).split())
+
+
 def rows_from(words):
     out, orphans, odd = [], [], []
+    left = desc_column(words)
     for w in words:
         if ODD.match(w[4]):
             odd.append(w[4])
@@ -46,9 +84,13 @@ def rows_from(words):
         # side-by-side tables: the right-hand table's ITEM cell sits between this description and its number
         if hit_number and len(desc) > 1 and re.match(r"^\d{1,3}[A-Z]?$", desc[-1]):
             desc = desc[:-1]
+        while desc and desc[0] == "N/A":  # model-matrix sheets: an N/A cell of the next model column is not description
+            desc = desc[1:]
         if desc and desc[0] == "-":
             desc = desc[1:]
         t = " ".join(" ".join(desc).split())
+        if not t:
+            t = matrix_desc(w, words, left)
         if t:
             out.append((round(y), w[4], t))
         else:
@@ -99,7 +141,8 @@ def main(pdf, outp, prefix, first_orig=1):
                           "only_b": [x for x in b if key(x) not in ka][:5]})
         orphans += [{"page": i + 1, "number": n} for n in oa]
         odd += [{"page": i + 1, "number": n} for n in da]
-        agreed = [x for x in a if key(x) in kb and not re.match(r"^(\*|N/A$|&$)", x[1])]
+        # a description starting in lower case is a note sentence ("322404005 and 322404008 have non vented caps.")
+        agreed = [x for x in a if key(x) in kb and not re.match(r"^(\*|N/A$|&$|[a-z])", x[1])]
         if not agreed:
             continue
         label = f"{prefix} — PARTS LIST: {title_of(text)} (guide p {first_orig + i})"
