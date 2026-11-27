@@ -331,8 +331,14 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     Still held: Bravura page-3 "Optional Extra's" (letter items, no "Spare part number" header); cookers Caprice
     SOH72, Enigma SOH46, Triplex SOH76 / SOH77: the production-date qualifiers print "≥" as ">" plus a separate
     underline drawing (the text layer says ">"), item rows with production-date sub-rows lose the item name, and two
-    SSPA numbers at mid-row positions in one shaded cell are not assignable. N3000 / N4000 fridge lists not tried yet
-    (same family; 55 / 45 pages).
+    SSPA numbers at mid-row positions in one shaded cell are not assignable. In SOH76 the "≥" is a ">" glyph with a
+    glyph-wide underline drawing just below it (C260's ">" has none), so an underline check would fix blocker 1.
+    N4000 (116 numbers) and N3000 (141 numbers) partly published: only rows both passes give identically; N3000 rows
+    with < > ≥ ≤ qualifiers or cut-off italic descriptions (text running into the number column) left out. Not read
+    yet: continuation pages without a header (N4000 pp 24, 29), control-panel pages with a one-line "Spare part
+    number" header (N4000 pp 33/35/37), "626985**" footnote-marked numbers and framed/frameless variant rows whose
+    numbers sit off the header columns (N4000 p7). The reader now reports every unread part-like token ("unread")
+    and loads only agreed rows ("agree" = loaded rows agreed; "all_rows_agree" = no one-pass rows).
   - Dometic RV Customer Service Training Binder (81 pp) held: all same-maker (awning FRTA obsolete -> replacement tables
     with wildcard numbers like 834(XX)YY.400, A/C replacement decision trees, control-conversion kits, Air Command spec
     table); legacy-map v2 candidates once a storage rule for the wildcard patterns is decided.

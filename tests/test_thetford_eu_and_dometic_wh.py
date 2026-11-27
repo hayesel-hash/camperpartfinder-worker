@@ -24,7 +24,7 @@ class ThetfordTokens(unittest.TestCase):
             self.assertTrue(te.NUMRE.match(n), n)
 
     def test_dates_and_words_are_not_numbers(self):
-        for n in ("06-12-16", "29-01-2024", "25-09-2011", "C-model", "62", "127", "(E340T…)"):
+        for n in ("06-12-16", "29-01-2024", "25-09-2011", "31-06-", "2016", "C-model", "62", "127", "(E340T…)"):
             self.assertFalse(te.NUMRE.match(n), n)
 
     def test_item_labels(self):

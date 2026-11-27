@@ -17,7 +17,7 @@ usage: python3 -I thetford_eu_spare_list.py <pdf> <out.json> "<document label>" 
 import hashlib, json, re, sys
 import pymupdf
 
-NUMRE = re.compile(r"^(?!\d{1,2}-\d{1,2}-\d{2,4}$)(?=(?:.*\d){4})[A-Z0-9][A-Z0-9.\-]{3,}$")  # dates are qualifiers
+NUMRE = re.compile(r"^(?!\d{1,2}-\d{1,2}-(?:\d{2,4})?$)(?=(?:.*\d){4})[A-Z0-9][A-Z0-9.\-]{4,}$")  # dates / years are qualifiers
 ITEM = re.compile(r"^\d{1,3}[A-Za-z]?$")
 ZOOM = 4
 
@@ -280,7 +280,7 @@ def main(pdf, outp, doc_label):
     raw = open(pdf, "rb").read(); sha = hashlib.sha256(raw).hexdigest()
     d = pymupdf.open(pdf)
     legend = any("not available anymore" in p.get_text() for p in d)
-    rows, diffs, held, seen, dup = [], [], [], {}, []
+    rows, diffs, held, seen, dup, unread = [], [], [], {}, [], []
     sections, lines, nper = {}, [], {}
     for i, p in enumerate(d):
         head = next((l.strip() for l in p.get_text().splitlines() if l.strip()), "")
@@ -294,6 +294,12 @@ def main(pdf, outp, doc_label):
             diffs.append({"page": i + 1, "only_a": [x for x in ra if x not in rb][:5], "only_b": [x for x in rb if x not in ra][:5],
                           "held_a": ha[:5], "held_b": hb[:5]})
         held += [{"page": i + 1, "number": n, "why": why} for n, why in ha if (n, why) in hb]
+        # every part-number-like token on a table page must be loaded, held or a repeat; the rest is reported
+        got = {x[0] for x in ra + rb} | {n for n, _ in ha + hb}
+        for w in p.get_text("words"):
+            t = w[4].strip("*(),;")
+            if NUMRE.match(t) and re.search(r"\d{5}", t) and t not in got and t not in [u["number"] for u in unread]:
+                unread.append({"page": i + 1, "number": t, "as_printed": w[4]})
         sec = f"{model} ({date})" if date else model
         sk = next((k for k, v in sections.items() if v == sec), None)
         if sk is None:
@@ -307,12 +313,14 @@ def main(pdf, outp, doc_label):
             seen[num] = i + 1; nper[i + 1] = nper.get(i + 1, 0) + 1
             rows.append(num)
             lines.append(f"{i + 1}|{nper[i + 1]}|{num}|{text.replace('|', '/')}|{sk}")
-    out = {"doc": sha, "pages": d.page_count, "agree": not diffs and bool(lines), "diffs": diffs, "numbers": len(seen),
+    # "agree": every loaded row was given identically by both passes (rows from one pass only are in "diffs", not loaded)
+    out = {"doc": sha, "pages": d.page_count, "agree": bool(lines), "all_rows_agree": not diffs, "diffs": diffs,
+           "unread": unread, "numbers": len(seen),
            "held": held, "repeats": len(dup), "legend_not_available": legend,
            "sections": {k: f"{doc_label}: {v}" for k, v in sections.items()}, "rows": "\n".join(lines)}
     json.dump(out, open(outp, "w"), ensure_ascii=False)
-    print(json.dumps({"sha16": sha[:16], "agree": out["agree"], "numbers": len(seen), "held": held[:8], "repeats": len(dup),
-                      "diffs": diffs[:2]}, ensure_ascii=False)[:3000])
+    print(json.dumps({"sha16": sha[:16], "agree": out["agree"], "all_rows_agree": not diffs, "numbers": len(seen),
+                      "held": held[:8], "unread": unread[:12], "repeats": len(dup), "diffs": diffs[:2]}, ensure_ascii=False)[:3000])
 
 
 if __name__ == "__main__":
