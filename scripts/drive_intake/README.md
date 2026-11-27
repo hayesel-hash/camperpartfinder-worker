@@ -472,9 +472,10 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     after numbers such as 140-2105C are service intervals), Air Lift Load Support Application Guide (2 splits; p 10-11 service parts are a
     supplied-lane candidate), Horizon Global Towing & Trailering 2022 Application Guide (5 splits; multi-layout catalogue, no Horizon Global
     brand in the DB yet; ModuLite 119147 "(Replaces 119179)" etc. on split pp 126-250 PDF p61 = same-maker supersessions).
-- 27 Nov ~11:19 run (session_017XuwiMBAChqhVFCTEkQZJ1): no new PDFs in Drive since 06:55 (nothing registered). Re-checked held files:
-  4 done (claimed from `held` by setting status `claimed` with this session id), 2 re-held with layout notes. 246 new Dometic parts
-  (RM2351 48, Wedgewood 33 series 75, Wedgewood 35 series 27, Brisk Air 579 96), 140 existing parts evidenced. No cross-maker links (all
+- 27 Nov ~11:19 run (session_017XuwiMBAChqhVFCTEkQZJ1): no new PDFs in Drive since 06:55 (nothing registered). Re-checked 9 held files
+  (claimed from `held` by setting status `claimed` with this session id): 5 done, 4 re-held (one of them partly published). 295 new parts
+  (Dometic: RM2351 48, Wedgewood 33 series 75, Wedgewood 35 series 27, Brisk Air 579 96, 620315.421 options 23; Flojet 26), 148 existing
+  parts evidenced. No cross-maker links (all
   own-maker lists; every held cross-reference file still waits on one of Larry's decisions: third-party tier, Peterson/Grote scope,
   Zip Dee publisher, Lippert-printed Thule numbers).
   - `scripts/aftermarket_pdf/dometic_llc_index_list.py` — Dometic Corporation US-format refrigerator PARTS LIST (RM2351 form 3311745.000):
@@ -498,6 +499,16 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   - Supplement drops under an existing name: after pushing new bytes, raw.githubusercontent.com served the old file for ~5 minutes; wait
     until it serves the new bytes, then set the drop back to `queued` (rows with new `n` values load; existing rows are kept).
   - Tests: `tests/test_dometic_matrix_readers.py`.
+  - `scripts/aftermarket_pdf/dometic_option_tables.py` — the "Customer Option" tables of Dometic roof A/C PARTS LIST sheets that
+    dometic_parts_list.py leaves unread: "Component | Description" boxes (number first) and "Description | Part No. | Part No." assembly
+    tables with one assembly number under each header ("[for 3106615.010]" when only one column prints the number). pymupdf vs pdfplumber
+    words; optional page list. 620315.421 pp 5 and 7: 31 rows (supplement drop under the existing name 1b74f52430172388, n 201-231, key
+    re-pointed to this run's key). Its p8 sensor table and p9 return-air kit table give empty descriptions (description cells apart from
+    the numbers): not loaded; the 991760360 heat pump prints no such table.
+  - `scripts/aftermarket_pdf/flojet_datasheet_accessories.py` — Flojet (Xylem) pump datasheet p3: Accessories sections split by the drawn
+    full-width rules (heading in the left column of each band; names "<heading>: <description>", "(2-pack kit)" from the section note) and
+    Pump Service Kits & Spares (item name + description column). R3426504A: 26 new parts, manufacturer `Flojet` added, source
+    `flojet-pump-datasheets-drive-supplied`. Candidate for the Q301V-117S-3A datasheet (held only for its "closest matches" line).
   - Roadmaster Falcon / Sterling All Terrain tow bar component lists re-checked and re-held with layout notes (two text columns, dotted
     leaders glued to numbers, sub-entries without callouts, Falcon item 6 text layer clipped; Sterling 9 "replaces obsolete ... 200680-00
     and 654303" = same-maker supersession). Roadmaster is not a manufacturer in the DB yet.

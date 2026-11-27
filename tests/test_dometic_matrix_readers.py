@@ -95,3 +95,20 @@ def test_option_tables_component_box_and_two_column_table():
     assert O.read_words(cols) == [("columns", "Box, asm. air", "3101390.056", " [for 3106615.002]"),
                                   ("columns", "Box, asm. air", "3105908.010", " [for 3106615.010]"),
                                   ("columns", "Filter", "3100281.009", "")]
+
+
+def test_flojet_accessories_sections_by_rules():
+    import flojet_datasheet_accessories as F
+
+    def w(x, y, t):
+        return (x, y - 10, x + 6 * len(t), y, t)
+    words = [w(42, 404, "Accessories"),
+             w(43, 437, "Accumulator"), w(119, 437, "305730004A"), w(169, 437, "1"), w(175, 437, "Liter"), w(194, 437, "Tank"),
+             w(122, 467, "01740000S"), w(169, 467, "In-line,"), w(197, 467, "3/4\""), w(43, 503, "Strainers"),
+             w(124, 582, "20381000"), w(169, 582, "Garden"), w(199, 582, "hose"), w(43, 590, "Port"), w(62, 590, "Fittings"),
+             w(320, 590, "All"), w(332, 590, "part"), w(350, 590, "numbers"), w(386, 590, "are"), w(401, 590, "2-pack"),
+             w(428, 590, "kits")]
+    rows = F.read(words, [413, 449, 569, 600])
+    assert rows == [("Accumulator", "305730004A", "Accumulator: 1 Liter Tank"),
+                    ("Strainers", "01740000S", "Strainers: In-line, 3/4\""),
+                    ("Port Fittings", "20381000", "Port Fittings: Garden hose (2-pack kit)")]
