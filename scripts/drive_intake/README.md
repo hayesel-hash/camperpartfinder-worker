@@ -130,6 +130,27 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   on; numbers containing "/" (Aria T-PF.P03/B) are reported, not loaded (test: `tests/test_thetford_us_sheet.py`, source
   `thetford-us-parts-sheets-drive-supplied`).
 
+- `scripts/aftermarket_pdf/atwood_hf_parts_list.py` — Atwood (Dometic) hydro flame furnace "Parts Drawing & List" sheets
+  (Word/PDFMaker ruled table Item | Category | P/N | Title | X per rotated model column; some sheets Category | Item first;
+  some pages two tables side by side). Pass A: one text line per cell (blank cells = blank lines), rows read group by group;
+  pass B: find_tables row bands cut at every row boundary (merged Item cells) + word boxes. Category carries down per table
+  group; "[models: ...]" when not every model is marked (test: `tests/test_atwood_hf_parts_list.py`, source
+  `atwood-hydro-flame-parts-lists-drive-supplied`, publisher Dometic). First use 27 Nov: 7900-II/8012-II, 8500-IV, 8900-III.
+- `scripts/aftermarket_pdf/webasto_catalogue.py` — Webasto 2024/25 Commercial Vehicle Heating & A/C catalogue (North America):
+  "[Part Rendering |] Part Description | Voltage | Part Number" tables. Pass A dict lines, pass B word runs by baseline;
+  wrapped description lines joined; voltage appended "(12 V)". Held (reported, not loaded): numbers with no voltage cell on
+  their line (two numbers in one cell, bottom-aligned cells), numbers with a description line directly above them, "P/N:"
+  numbers in adapter-selection charts (test: `tests/test_webasto_readers.py`, source
+  `webasto-cv-heating-catalogue-2024-drive-supplied`, manufacturer `Webasto` added 27 Nov).
+- `scripts/aftermarket_pdf/webasto_spare_parts_list.py` — Webasto multilingual InDesign "Spare parts list" PDFs (Pos | rotated
+  version columns with square glyphs | Part no. | Description in 5 languages; Air Top Evo 40/55, Thermo Top Evo 4/5/5+).
+  English description only; rows whose English text wraps are held (pass A reads one line). Source
+  `webasto-spare-parts-lists-drive-supplied`.
+- `scripts/aftermarket_pdf/webasto_word_spare_list.py` — Webasto North-America bilingual Word spare parts lists (Air Top
+  2000 STC): find_tables cells mapped to header columns by x (find_tables splits columns oddly under rotated headers);
+  checked by "every number on the page is a row, inside a Notes cell or in a footnote sentence" + page image. No unit test
+  (needs real table geometry).
+
 ## Drop mechanics (learned 27 Nov)
 - `supplied_document_rows_v1.number` must match `^[A-Za-z0-9][A-Za-z0-9./-]{1,39}$` (no spaces).
 - `supplied_drops_v1.url` must be the `.../supplied-drops/<name>.b64` branch URL; when re-pushing a corrected drop
@@ -203,3 +224,9 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   start dates + option tables), Thetford European spare-parts-list layout (C500, C220, Caprice cooker SOH72XXX, Bravura:
   up to three "Spare part number" columns per row). Remaining Dometic family files: RV Customer Service Replacement and
   Training Binder, WH-6GA/WH-16GEA and WH6EA water-heater lists (not yet looked at).
+- 27 Nov ~06:49 run (session_017XuwiLwXBAG6sjfMy26bDA): no new PDFs in Drive since 05:05 (batch-2 folder still only the 00
+  brief). Families: dometic atwood (9 files: 3 furnace lists published, 80 new parts; training manual pp 1-27 nothing to
+  load; pp 28-54 parts pages are images -> OCR; Wedgewood 33/35 range matrices and the water-heater training slides held for
+  readers) and webasto (9 files, all done: 372 new parts). Wedgewood 33/35: Item | Description | 6 model columns under a
+  3-row header (WEDGEWOOD/ATWOOD, RV/CV/RA/CA, 1733/2133/33) with colour / burner-position variants right-aligned in the
+  Description cell and continuation rows holding only the variant ("Black", "Bisque") -> base description + variant.
