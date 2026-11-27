@@ -418,7 +418,7 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     is Flojet's own older models and only "closest" -> not loaded. SHURflo 4048 / 4008 data sheets: every number already in
     the DB -> done, nothing new.
 - 27 Nov ~10:19 run (session_017XuwiLMxKKnRRrA9Uyz3gG): no new PDFs in Drive since 06:55. 42 files: 7 done, 33 held, 2 skipped.
-  1939 new parts (Thule 1670, Generac 221, Knott 40, Lippert 8), 996 existing parts got new evidence (Knott 709, REMIS 287,
+  1939 new parts (Thule 1670, Generac 221, Knott 40, Lippert 8), 1015 existing parts got new evidence (Knott 709, REMIS 287,
   Lippert 19), 1 Lippert supersession (HappiJac controller 139315 -> upgrade kit 733540). No cross-maker links (all own lists or
   distributor catalogues). Manufacturers added: `Thule`, `Generac`.
   - `scripts/aftermarket_pdf/thule_spare_parts_price_list.py` — Thule "RV Accessories Spare Parts 2023 price list" (Excel export:
