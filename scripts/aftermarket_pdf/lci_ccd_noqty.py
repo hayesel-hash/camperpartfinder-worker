@@ -17,7 +17,7 @@ from lci_ccd_list import title_of, lines_text
 
 PN = re.compile(r"^\*?\d{5,10}$")  # "*694131": footnote "*Part must be replaced using variant code."
 STAR_NOTE = "*Part must be replaced using variant code."
-CALL = re.compile(r"^[A-Z]{1,2}$")
+CALL = re.compile(r"^[A-Z]{1,2}(/[LR])?$")  # "E/L", "E/R": left / right callouts (Thule 5200 CCD-0003803)
 STOP = re.compile(r"^(Rev:|Web:|CCD-\d+$|Note:|NOTE:)")
 
 
@@ -92,18 +92,24 @@ def main(pdf, outp, label=""):
         if a != b:
             diffs.append({"page": i + 1, "only_a": [x for x in a if x not in b][:5], "only_b": [x for x in b if x not in a][:5]})
         rows += [(i + 1, n, num, desc) for n, (num, desc) in enumerate([x for x in a if x in b], 1)]
+    # one number printed against two different descriptions (LH and RH endcap, CCD-0003803) is not loaded: which
+    # wording names the part is not said; reported in "conflicts".
+    descs = {}
+    for pg, n, num, desc in rows:
+        descs.setdefault(num, set()).add(desc)
+    conflicts = {k: sorted(v) for k, v in descs.items() if len(v) > 1}
     seen, lines = set(), []
     for pg, n, num, desc in rows:
-        if num in seen or not desc:
+        if num in seen or not desc or num in conflicts:
             continue
         seen.add(num); lines.append(f"{pg}|{n}|{num}|{desc.replace('|', '/')}|0")
     # only rows both passes give identically are written, so "agree" means every loaded row agreed;
     # "all_rows_agree" says whether any one-pass rows were left out (listed in "diffs").
     out = {"doc": sha, "pages": d.page_count, "agree": bool(lines), "all_rows_agree": not diffs, "diffs": diffs, "rows_total": len(rows),
-           "numbers": len(seen), "sections": {"0": sec}, "rows": "\n".join(lines)}
+           "numbers": len(seen), "conflicts": conflicts, "sections": {"0": sec}, "rows": "\n".join(lines)}
     json.dump(out, open(outp, "w"), ensure_ascii=False)
     print(json.dumps({"sha16": sha[:16], "title": sec, "agree": out["agree"], "all_rows_agree": not diffs, "rows": len(rows), "numbers": len(seen),
-                      "diffs": diffs[:3]}, ensure_ascii=False)[:2000])
+                      "conflicts": conflicts, "diffs": diffs[:3]}, ensure_ascii=False)[:2000])
 
 
 if __name__ == "__main__":

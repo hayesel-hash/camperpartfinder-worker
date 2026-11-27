@@ -417,3 +417,34 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     R3426504A datasheet (~25 accessory numbers on p3). Flojet Q301V-117S-3A "Replaces (closest matches): 04406143A R4406143M"
     is Flojet's own older models and only "closest" -> not loaded. SHURflo 4048 / 4008 data sheets: every number already in
     the DB -> done, nothing new.
+- 27 Nov ~10:19 run (session_017XuwiLMxKKnRRrA9Uyz3gG): no new PDFs in Drive since 06:55. 42 files: 7 done, 33 held, 2 skipped.
+  1939 new parts (Thule 1670, Generac 221, Knott 40, Lippert 8), 996 existing parts got new evidence (Knott 709, REMIS 287,
+  Lippert 19), 1 Lippert supersession (HappiJac controller 139315 -> upgrade kit 733540). No cross-maker links (all own lists or
+  distributor catalogues). Manufacturers added: `Thule`, `Generac`.
+  - `scripts/aftermarket_pdf/thule_spare_parts_price_list.py` — Thule "RV Accessories Spare Parts 2023 price list" (Excel export:
+    Pos | ART.NR. | DESCRIPTION | Price under each drawing; continuation pages repeat no header and start at y ~43; the footer
+    page number can share the last row's baseline). Word positions vs text-line order. 143 numbers printed with two different
+    descriptions (one roller tube for 4200 / 5200 / Tristor) are not loaded. Source `thule-rv-spare-parts-price-list-drive-supplied`.
+  - `scripts/aftermarket_pdf/knott_spare_parts.py` — KNOTT Trailer Technology spare parts catalogue 2019 (German): Pos | Bezeichnung |
+    Bestell-nummer, rows vertically centred (pass B cuts row bands half-way between position numbers), "auf Anfrage" rows have no
+    number, "siehe S. 185-191" is a page reference. Order numbers: 42191, D94.013, 33921-1.06, 409697B002, 47305V, 8710311314,
+    6J1031.006 ... Split pp 193-384 pdf pp 158-181 (overview tables) are not read yet. Source `knott-spare-parts-catalogue-2019-drive-supplied`;
+    673 of its 713 numbers were already Knott parts from the 2026 catalogues.
+  - `scripts/aftermarket_pdf/header_table_parts.py` — generic one-line parts table found by header words
+    (`<num_label> <desc_label> [stop labels]`): Generac "PART DESCRIPTION ITEM,QTY." and REMIS "number Description Image".
+    Descriptions may start left of their header word (REMIS), so the column begins after the widest number.
+  - `lci_ccd_noqty.py`: left/right callouts "E/L", "E/R" now end a description (Thule 5200 CCD-0003803); a number printed
+    against two different descriptions (LH and RH endcap) is not loaded and is listed in "conflicts".
+  - Tests: `tests/test_thule_knott_readers.py`.
+  - **Lippert CCDs for Thule awnings print Thule ART.NR. numbers** (CCD-0003803: 10 of 18 numbers identical to Thule's own 2023
+    list) without saying whose numbers they are -> held for Larry: load them as Thule evidence, or not at all (as Lippert parts
+    they would duplicate the Thule identities).
+  - Held for readers: MPK rooflight catalogue (bilingual colour-column tables with sub-rows; a first attempt agreed on too few
+    rows), Zadi 2026-2027 locks (multi-layout), Reimo 2025 windows/doors (vehicle fitment tables with prices), Demco 2026
+    (product attribute tables; "SAME AS" = same-maker knocked-down kit), Roadmaster Falcon / Sterling tow bar component pages
+    (dotted leaders, two-line descriptions), Kwikee step guide 82-ST0501 and kit sheet #214 (also a maker-name question:
+    Kwikee / Power Gear are not manufacturers in the DB).
+  - Held with the distributors: MF Campingwelt 2021-2022 (Hersteller Nr. | Art-Nr.), Euro Accessoires 2008, Moog 2024 ("für/for
+    ALKO / KNOTT / BPW" axle and coupling types = fitment), Vecam 2015 (R-numbers, partly private-font text), Grassroutes Leisure,
+    Pennine Leisure Supplies / BCA converter catalogue, the RV Supplies (NZ) Powrtouch Evolution list.
+  - Skipped (copy-protected): Power Gear hydraulic leveler manual 82-L0040, Knott Avonride UK catalogue.
