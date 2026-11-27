@@ -617,7 +617,8 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   Suburban held (cited web PDF could not be opened from the scheduled run: the web fetch needs a permission nobody can grant unattended;
   the line names no maker for #110-504 / #110-509 and no brand for #3200289, and joins two numbers with "or"). Replies 03 (Michael's
   Claude) and 04 (Michael's ChatGPT) written; both of their messages were numbered 02. 8 distributor files: 2 done with drops, 2 done
-  nothing new, 3 re-held, 1 released. 382 new parts (Thetford 152, AL-KO 230), 177 existing Thetford parts evidenced; no cross-maker links.
+  nothing new, 4 re-held (one of them partly published). 425 new parts (Thetford 152, AL-KO 230, Coleman-Mach 43), 177 existing Thetford
+  parts evidenced; no cross-maker links.
   - Trailer Enterprises sections (Section C brakes "Dexter and Kodiak", axle components, Section D suspensions) re-read under the
     distributor decision: no maker-to-maker statement anywhere. The "Electric / Hydraulic Brake Parts Replacement Chart" (Redline Trailer
     Repair Parts logo) lists service parts per brake model column (fitment); the p39 seal table pairs RG06-0x0 / seal / "INTERCHANGE#"
@@ -635,6 +636,10 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     differently; heading from pass A). Held: wraps, numbered lines under a "Pos | heading" line ("10 | Brake drum / Complete with bearing"
     over 623748 ...), qualifier-only descriptions ("-7/95"). Drop 4ec4873c0c803170 (source `alko-grove-spare-parts-list-drive-supplied`):
     230 new AL-KO parts.
-  - AL-KO Australia Dexter sheets: all 7 Dexter numbers already parts -> done. Coleman section Q (distributor "Parts Quick Reference"):
-    released back to `new` with reader notes (79 Coleman-Mach "(S/O nnnn-nnnn)" numbers under the COLEMAN-MACH heading, 78 not in the DB).
+  - AL-KO Australia Dexter sheets: all 7 Dexter numbers already parts -> done.
+  - `scripts/aftermarket_pdf/coleman_so_quick_reference.py` — Coleman section Q of a distributor's "PARTS QUICK REFERENCE" (printed
+    pp 552-567): only "(S/O <number>)" in the description column of pages headed COLEMAN(-MACH) AIR CONDITIONER PARTS (the special-order
+    number is Coleman-Mach's own; ORDER # is the distributor's stock number); description from the same line or the line directly above,
+    section heading in brackets. Drop 1d36332bfe44360d (source `coleman-mach-so-quick-reference-distributor-drive-supplied`): 43 new
+    Coleman-Mach parts; ~36 numbers held (multi-line cells, variant lines, 6 printed with two descriptions, X-Reference pp 13-15 not read).
   - Drop key id `drops-2026-11-27-intake-mddeb`. Tests: `tests/test_grove_thetford_alko_readers.py`.

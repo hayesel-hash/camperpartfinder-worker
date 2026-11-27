@@ -11,6 +11,7 @@ HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, "..", "scripts", "aftermarket_pdf"))
 import thetford_grove_spares as tgs
 import alko_grove_spares as ags
+import coleman_so_quick_reference as csq
 
 
 def W(x0, top, text, bold=False, h=10.5, w=None):
@@ -108,6 +109,38 @@ class AlkoGroveTest(unittest.TestCase):
         self.assertIn("heading", whys["1224800"])
         self.assertIn("623748", whys)
         self.assertIn("word", whys["220098"])
+
+
+def C(x0, bottom, text):
+    return {"x0": x0, "top": bottom - 8, "x1": x0 + 4.2 * len(text), "bottom": bottom, "text": text}
+
+
+class ColemanSoTest(unittest.TestCase):
+    """Coleman-Mach "(S/O n)" numbers from a distributor quick reference (geometry from pdf p2, printed p553)."""
+    TEXT = "COLEMAN-MACH AIR CONDITIONER PARTS"
+
+    def page(self):
+        return [C(105, 92, "PARTS"), C(133, 92, "DESCRIPTION"), C(210, 92, "ORDER"), C(240, 92, "#"),
+                C(84, 120, "CAPACITORS:"), C(84, 208, "Fan"), C(98, 208, "(5-Mfd/370V)"), C(84, 217, "(S/O"), C(101, 217, "6749-4421)"),
+                C(210, 212, "S/O"), C(84, 249, "START"), C(109, 249, "RELAYS:"), C(84, 259, "Relay"), C(105, 259, "(S/O"),
+                C(122, 259, "1497-5051)"), C(84, 283, "SHROUDS:"), C(84, 400, "Ceiling"), C(115, 400, "Shroud"),
+                C(84, 409, "(Ivory)"), C(110, 409, "With"), C(130, 409, "Decals"), C(160, 409, "(S/O"), C(177, 409, "6727-3511)"),
+                C(84, 440, "Acorn"), C(84, 449, "Washer"), C(115, 449, "pk/4"), C(84, 458, "(S/O"), C(101, 458, "6792A3301)"),
+                C(210, 449, "61632")]
+
+    def test_rows(self):
+        rows, held, unread = csq.read_page(self.page(), self.TEXT)
+        got = {(r["number"], r["desc"]) for r in rows}
+        self.assertIn(("6749-4421", "Fan (5-Mfd/370V) [Capacitors]"), got)
+        self.assertIn(("1497-5051", "Relay [Start Relays]"), got)
+        nums = {r["number"] for r in rows}
+        self.assertNotIn("6727-3511", nums)      # "(Ivory) With Decals" is a variant line of "Ceiling Shroud"
+        self.assertNotIn("6792A3301", nums)      # description runs over two lines
+        self.assertNotIn("61632", nums)          # distributor ORDER #
+
+    def test_no_maker_heading_no_rows(self):
+        rows, held, unread = csq.read_page(self.page(), "PARTS QUICK REFERENCE")
+        self.assertEqual(rows, [])
 
 
 if __name__ == "__main__":
