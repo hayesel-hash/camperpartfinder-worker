@@ -739,7 +739,11 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
   Aqua Magic IV SPL checked, no rows) answered with 11 and 12 (12 asks for both Thetford PDFs to be uploaded: 42002 / 42006 are not in
   the DB). README in that folder updated by Larry at 15:20: PDFs first, score = rows published. The last 7 `new` files (all
   priority-70 distributor catalogues) processed: 4 done, 3 held (2 partly published). 32 new parts (Whale 14, CAN 18), no cross-maker
-  links (none of the 7 makes a maker-to-maker statement). Manufacturers `Whale` and `CAN` added. **The register has no `new` files left.**
+  links (none of the 7 makes a maker-to-maker statement). Manufacturers `Whale` and `CAN` added. At ~15:35 Michael's ChatGPT uploaded
+  the Valeryd 2022 catalogue (Swedish, 10 splits of 20 pages) to Michael's folder: registered at ~15:45 as family `valeryd` (lane
+  oem_parts_list, priority 50) and left `new` for the :49 run, with a first look in each row's note (Valeryd article numbers with the
+  brake / axle / coupling TYPE they fit = fitment; p7 says Valeryd makes its own brake shoes; the only original-number line in 200
+  pages is split pp 81-100 pdf p14 "2380033 ... Al-Ko 131R/161S ... Original 583528") and the Drive copies' SHA-256 in result.first_look.
   - Moog Trailer Parts 2024 (2 splits) done, nothing to load: Moog says "Wir verkaufen Qualitaetsprodukte" (a seller), every Art.-Nr.
     (50.837-00) is its stock number, and every maker reference is an axle / brake / coupling TYPE (p15 brake-shoe sets "usable for"
     ALKO 1637, KNOTT 20-2425/1, BPW S2005-7RASK with drum sizes = fitment). Vecam 2015 (2 splits) done, nothing to load: only Vecam
