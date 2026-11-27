@@ -47,13 +47,26 @@ Always write `doc_sha256`, `source_id`, `result` and a plain-English `note`.
   Pass A reads text blocks, pass B word positions (the rotated section label on the page edge is dropped).
   Instruction/Installation Sheet and LIT- manual rows are left out (test: `tests/test_dexter_lit119.py`).
 
+- `scripts/aftermarket_pdf/icon_tanks.py` — ICON Technologies RV parts catalogue tank pages: "<ICON no.> Replaces
+  <brand> <number>[, <number>]" under the tank heading and size line. Pass A text lines, pass B word boxes by column
+  and baseline (edge labels dropped). Rows with no brand printed, a misspelt brand, or an OEM number equal to ICON's
+  own tank code are returned with a hold reason (test: `tests/test_icon_tanks.py`). Staged into
+  `aftermarket_assertions_v1` (source `icon-rv-parts-catalogue-2027`, maker `ICON Technologies`).
+- `scripts/aftermarket_pdf/carefree_ipl.py` — Carefree of Colorado Illustrated Parts Lists (Item / Part Number /
+  Description / Notes). Pass A dict-layer line cells, pass B word boxes merged into cells; order templates (`3nn`,
+  `xx`, `XX`/`XXX` colour codes) skipped and counted (test: `tests/test_carefree_ipl.py`). Output is a
+  supplied-documents drop (source `carefree-ipl-drive-supplied`). Scanned Carefree lists still need OCR.
+
 ## Notes from scheduled runs
 - Each "Verified - ..." subfolder of the 200 Catalogue Intake has a `source.txt` (original URL, page count,
   SHA-256 and the uploaded split parts). Compare the Drive copy's hash with it; ChatGPT's "Use:" line is a
   description only.
 - Distributor catalogues (Trailer Enterprises sections, Berger, Vecam, Euro Accessoires, Moog) list other makers'
   numbers against their own: hold them for the third-party tier decision unless the maker of the part itself
-  states the replacement.
+  states the replacement. Same for the "AL-KO Spare Parts" list with a Grove No. column (Grove Products, UK) and the
+  AL-KO Australia "Genuine Dexter Parts" sheets (AL-KO stock numbers against Dexter numbers).
+- Check `pymupdf.Document.permissions` before reading: a PDF whose owner password forbids copying/extraction
+  (e.g. Dexter "AL-KO Genuine Parts by Dexter" cross reference, 27 Nov) is held for Larry's decision, not read.
 
 ## Conversion kits (relation `replaces_with_kit`, claim kind `conversion_kit_replacement`)
 Approved by Larry, 26 Nov 2026 23:15. Use when a maker says its part/unit replaces another only
