@@ -583,3 +583,32 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     the legacy-map v2 lane, extraction `atwood-wh-part-reference-nla-note-v1`). Model applicability not stored. The pilot
     water-heater pages 42-43 match the fingerprint but descriptions wrap onto 2-3 lines beside the number there, so the word pass
     disagrees; read only 46-47 (range argument). Test: `tests/test_atwood_wh_readers.py`.
+- 27 Nov ~12:49 run (session_017XuwiNgVLgCkWhXNXs6DHQ): registered 32 files from Michael's folder (12ol5Lq...): 2 Thetford PDFs and 30
+  Lane B "<source> - xref.csv" files. The prompt asks for family `michael-xref-csv`, but `family` is a generated column (first " - "
+  part of the title); the migration that would map `%xref.csv` titles to that family was refused by the session's permission check,
+  so the CSVs are registered with lane `other`, priority 15 and claimed with `claim_drive_intake_v2(session, n, null, 'other')`.
+  35 files done: 1,010 new parts (Truma 926 via the Grove print, Eberspächer 84), 222 existing parts evidenced, no cross-maker links.
+  - **Michael's CSVs (30 files, 49 lead rows) are all lippert.com (26), etrailer (2) and RecPro (2) pages** -> covered by the store
+    readers, nothing staged (Results tab rows 2-31). Gaps found: 22 of the 26 lippert.com pages are not in `store_products_v1` or
+    the store frontier (the 26 Nov sitemap load did not list them), and the store reader's compat rule does not capture lippert.com's
+    labelled spec fields "Manufacturer Reference Number" + "Reference Vendor/Manufacturer Name" (Kwikee, Power Gear numbers) or
+    "<builder> Part Number" (Jayco, Winnebago, Keystone RV, Thor, Grand Design), nor RecPro's "Heng's Part #" bullet (Heng's 90110-C1DL
+    and 90112-C1 are already parts). A store-reader extension (store lane, not the intake) would turn these into evidence at scale.
+  - Thetford C2 Electric Rev C: byte-identical to the C2 sheet already loaded. C402C/C403L Rev C: every number and all 14 supersession
+    pairs already published from Rev D. Both done, nothing new.
+  - `scripts/aftermarket_pdf/espar_airtronic_parts_list.py` — Espar AIRTRONIC D2/D4 manual parts list (pdf pp 31, 33-34) + cover
+    heater list: Ref | Description | variant cell (12V/24V, ø, mm, amp, NPT) | Part Number | bullet model columns (header drawn, not
+    text -> applicability not stored). Pass A pymupdf text lines, pass B pdfplumber words (number = longest numeric-shaped token
+    suffix, description / variant split by the gap). Numbers in Eberspächer's dotted form per Larry's decision, printed form in the
+    description; "*" -> "(optional feature)"; "• short harness" -> "Main harness: short harness"; 2a (blank description under 2)
+    takes item 2's description. 20 1280 09 01 03 is printed as "Grommet" and as "Fuel screen" -> not loaded. Drop d12955f4a890693e:
+    102 rows, 84 new, 18 existing (descriptions agree, e.g. 25.2069.06.0001 combustion chamber seal), confirming the dotted rule.
+  - `scripts/aftermarket_pdf/truma_grove_catalogue.py` — Truma Spare Parts catalogue printed by Grove Products (Pos | Truma No. |
+    Grove No. | Description | Qty, two tables per page): first distributor-catalogue load under Larry's decision. New source
+    `truma-grove-spare-parts-catalogue-drive-supplied` (publisher Truma, metadata kind distributor_catalogue, printed_publisher Grove
+    Products). Truma numbers only; Grove numbers never parts; "Includes items below" dropped; rows whose description wraps or is
+    missing are held; header qualifiers ("from 06/14", "TEB 3 / TEN 3") are section labels; numbers printed with two descriptions
+    not loaded (49 over the two splits, mostly language / abbreviation variants such as "O-ring 52x5" vs "O-ring 52 x 5 mm, VMQ").
+    Drops c25d4160f1c53a69 (433 new, 103 existing) and 1c2893016b400186 (493 new, 101 existing). Candidate for the other Grove-numbered
+    lists still `new` (Thetford_General_spares.pdf: Thetford Part No. | Grove Part No.; the AL-KO list with a Grove No. column).
+  - Tests: `tests/test_espar_truma_grove_readers.py`. Drop key id `drops-2026-11-27-intake-ngvl`.
