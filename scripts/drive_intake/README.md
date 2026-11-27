@@ -728,3 +728,9 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
     ("Ersatzteile Carry-Bike", "Mover SR", "Combi 4"); taking the maker from a product name needs Larry's OK. The Thule awning pages print
     only MF Art-Nr. (no Thule numbers).
   - Drop key id `drops-2026-11-27-intake-mek7`. Tests: `tests/test_coast_mf_readers.py`.
+  - Same run, ~15:15: Autodist 2016 (4 splits) re-held (maker-named block headings such as BULLDOG / FULTON / BUYERS over PART # |
+    MFG # tables, interleaved with the headings in the text layer; wiring pages name the maker per row: Hopkins / Optronics /
+    Peterson, which the one-publisher supplied lane cannot take). Euro Accessoires 2008 (2 splits) done, nothing to load: every
+    Reference / Code / REF cell is a Euro Accessoires 9xxxxx stock number. Pennine & BCA 5th edition (4 splits) re-held: "<CODE> -
+    <description>" blocks where maker codes (Whale ES1000 / AK1400 ...) carry no printed maker name; p5 "DRM5380 - Dometic Fridge -
+    Replaces RM42381L" is a distributor-stated same-maker model replacement (lane decision for Larry).
