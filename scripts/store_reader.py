@@ -42,6 +42,9 @@ class _Page(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.meta, self.ld, self.h1, self.text = {}, [], None, []
+        self.tables = []          # [(context_text, [[cell, ...], ...]), ...]
+        self._tab = []            # stack of open tables: [context, rows]
+        self._cell = None
         self._skip = 0
         self._ld = None
         self._h1 = None
@@ -61,7 +64,16 @@ class _Page(HTMLParser):
             self._skip += 1
         elif tag == "h1" and self.h1 is None:
             self._h1 = []
-        elif tag in ("br", "p", "div", "li", "tr", "td", "th", "dt", "dd", "span", "h2", "h3"):
+        if tag == "table":
+            before = " ".join("".join(self.text[-40:]).split())[-80:]
+            self._tab.append([before, []])
+        elif tag == "tr" and self._tab:
+            self._tab[-1][1].append([])
+        elif tag in ("td", "th") and self._tab:
+            if not self._tab[-1][1]:
+                self._tab[-1][1].append([])
+            self._cell = []
+        if tag in ("br", "p", "div", "li", "tr", "td", "th", "dt", "dd", "span", "h2", "h3"):
             self.text.append("\n")
 
     def handle_endtag(self, tag):
@@ -76,6 +88,12 @@ class _Page(HTMLParser):
         elif tag == "h1" and self._h1 is not None:
             self.h1 = " ".join("".join(self._h1).split())
             self._h1 = None
+        if tag in ("td", "th") and self._tab and self._cell is not None:
+            self._tab[-1][1][-1].append(" ".join("".join(self._cell).split()))
+            self._cell = None
+        elif tag == "table" and self._tab:
+            ctx, rows = self._tab.pop()
+            self.tables.append((ctx, [r for r in rows if any(c for c in r)]))
 
     def handle_data(self, data):
         if self._ld is not None:
@@ -85,6 +103,8 @@ class _Page(HTMLParser):
         else:
             if self._h1 is not None:
                 self._h1.append(data)
+            if self._cell is not None:
+                self._cell.append(data)
             self.text.append(data)
 
 
@@ -109,6 +129,34 @@ def _ld_products(blocks):
                 if t == "Product" or (isinstance(t, list) and "Product" in t):
                     out.append(node)
                 stack.extend(v for k, v in node.items() if k in ("@graph", "mainEntity", "itemListElement"))
+    return out
+
+
+TABLE_CONTEXT = re.compile(r"replac|cross.?ref|interchange|equivalent|compatib|oem|o\.e\.|supersed", re.I)
+
+
+def table_entries(tables, limit=4):
+    """Small tables that look like a cross-reference ("Direct Replacement Chart": a header row of
+    brands over a row of part numbers, or two-column brand | number rows) become one compat entry
+    each: 'TABLE|<context>|<header>=<cell>|...'. Only tables whose header, caption or the text just
+    before them mentions replacement / cross-reference wording are kept; cells without a digit are
+    dropped from the pairs. The database decides what (if anything) a pair means."""
+    out = []
+    for ctx, rows in tables:
+        if len(rows) < 2 or len(rows) > 30:
+            continue
+        head = rows[0]
+        pairs = []
+        if TABLE_CONTEXT.search(ctx + " " + " ".join(head)) and 2 <= len(head) <= 10 and all(len(r) == len(head) for r in rows[1:3]):
+            for r in rows[1:4]:
+                pairs += [f"{_clean(h)}={_clean(c)}" for h, c in zip(head, r) if h and re.search(r"[0-9]", c)]
+        if all(len(r) == 2 for r in rows) and TABLE_CONTEXT.search(ctx + " " + " ".join(sum(rows, []))):
+            pairs = [f"{_clean(a)}={_clean(b)}" for a, b in rows if a and re.search(r"[0-9]", b)]
+        if pairs:
+            entry = "TABLE|" + _clean(ctx)[-60:] + "|" + "|".join(pairs)
+            out.append(entry[:300])
+        if len(out) == limit:
+            break
     return out
 
 
@@ -142,7 +190,7 @@ def extract(html_text, url, url_pattern=None):
     if sku and url_sku and sku.upper() != url_sku.upper():
         note = f"page SKU {sku} differs from URL SKU {url_sku}"
         sku = None
-    compat = []
+    compat = table_entries(p.tables)
     for m in COMPAT.finditer(text):
         s = _clean(m.group(0))
         if 12 <= len(s) <= 300 and s not in compat:
@@ -174,17 +222,41 @@ def read(worker, url, limit):
     return body
 
 
-def load_frontier(worker, store):
-    index = read(worker, store["sitemap_url"], MAX_SITEMAP).decode("utf-8", "replace")
-    locs = LOC.findall(index)
-    children = [u for u in locs if u.endswith(".xml")] or [store["sitemap_url"]]
+def _xml(worker, url):
+    body = read(worker, url, MAX_SITEMAP)
+    if body[:2] == b"\x1f\x8b":
+        import gzip
+        body = gzip.decompress(body)[:MAX_SITEMAP]
+    return html.unescape(body.decode("utf-8", "replace"))
+
+
+def sitemap_roots(worker, store):
+    """The configured sitemap URL, or (when it is the literal 'robots') the Sitemap: lines of the
+    store's robots.txt on the same host."""
+    if store["sitemap_url"] != "robots":
+        return [store["sitemap_url"]]
+    text = read(worker, f"https://{store['host']}/robots.txt", 500_000).decode("utf-8", "replace")
+    roots = [m.strip() for m in re.findall(r"(?im)^\s*sitemap\s*:\s*(\S+)", text)]
+    roots = [u for u in roots if urllib.parse.urlsplit(u).hostname == store["host"]]
+    if not roots:
+        raise worker.Held("robots.txt names no same-host sitemap")
+    return roots
+
+
+def load_frontier(worker, store, max_children=400):
     pattern = re.compile(store["product_url_pattern"])
-    urls = [u for u in locs if pattern.match(u)]
-    for child in children:
-        if child == store["sitemap_url"]:
+    todo, seen, urls = sitemap_roots(worker, store), set(), []
+    while todo and len(seen) < max_children:
+        sm = todo.pop(0)
+        if sm in seen:
             continue
-        body = read(worker, child, MAX_SITEMAP).decode("utf-8", "replace")
-        urls.extend(u for u in LOC.findall(html.unescape(body)) if pattern.match(u))
+        seen.add(sm)
+        body = _xml(worker, sm)
+        locs = LOC.findall(body)
+        if re.search(r"<sitemapindex", body, re.I):
+            todo.extend(u for u in locs if urllib.parse.urlsplit(u).hostname == store["host"] and u not in seen)
+        else:
+            urls.extend(u for u in locs if pattern.match(u))
         time.sleep(PAGE_PAUSE)
     urls = sorted(set(urls))
     added = 0
@@ -225,14 +297,23 @@ def crawl(worker, store, deadline):
 def run():
     sys.path.insert(0, os.path.dirname(__file__))
     import rv_master_disk as worker
+    import threading
     deadline = time.monotonic() + RUN_SECONDS
-    for store in gateway("config"):
+
+    def one(store):
         try:
             if store.get("needs_frontier"):
                 load_frontier(worker, store)
             crawl(worker, store, deadline)
-        except worker.Held as exc:
-            print(json.dumps({"store": store["id"], "held": str(exc)}), flush=True)
+        except Exception as exc:  # one store's failure must not stop the others
+            print(json.dumps({"store": store["id"], "held": f"{type(exc).__name__}: {exc}"[:300]}), flush=True)
+
+    # Stores are on different hosts, so each gets its own thread; the per-host pause still applies.
+    threads = [threading.Thread(target=one, args=(s,)) for s in gateway("config")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
 
 
 if __name__ == "__main__":

@@ -64,6 +64,10 @@ HOSTS.add("www.dinosaurelectronics.com")
 HOSTS.add("dexterindex.com")
 # Makers' own online parts stores and parts books (Larry's blanket approval, 26 Nov 2026).
 HOSTS.update(["www.lippert.com", "airstream.com"])
+# Store cross-reference lane (Larry, 27 Nov 2026: "yes to both"): RecPro's own-brand pages print a
+# "Direct Replacement Chart" (manufacturer-certified aftermarket tier); etrailer is a retailer whose
+# "Replaces <brand> <number>" lines are kept only as the labelled seller-stated tier.
+HOSTS.update(["www.recpro.com", "recpro.com", "www.etrailer.com"])
 # Airstream's own document list publishes its parts-book download links on its CMS asset host
 # ("private": false). Approved by Larry, 26 Nov 2026 ("process all Airstream catalogues").
 HOSTS.add("a-us.storyblok.com")

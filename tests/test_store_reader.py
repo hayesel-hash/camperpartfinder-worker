@@ -77,5 +77,59 @@ class Guards(unittest.TestCase):
         self.assertEqual([u for u in sr.LOC.findall(xml) if re.match(PATTERN, u)], [URL])
 
 
+RECPRO = """<html><head><script type="application/ld+json">{"@type":"Product","name":"RecPro RV Water Pump 12V 3 Chamber","sku":"RP-1004","brand":{"@type":"Brand","name":"RecPro"}}</script></head>
+<body><h1>RecPro RV Water Pump 12V 3 Chamber</h1>
+<p>Direct replacement for Flojet, Shurflo and WFCO/Arterra: Flomax equivalent.</p>
+<h3>Direct Replacement Chart</h3>
+<table><tr><th>Shurflo</th><th>WFCO</th><th>Flojet</th><th>Flow Max</th><th>Seaflo</th></tr>
+<tr><td>4008-101-A65</td><td>PDS3B-130-1260E</td><td>03526-144A</td><td>689052</td><td>SFDP1-030-045-33</td></tr></table>
+<h3>Specifications</h3><table><tr><td>Voltage</td><td>12V</td></tr><tr><td>Weight</td><td>4 lb</td></tr></table>
+</body></html>"""
+
+ETRAILER = """<html><body><h1>Replacement Control Panel for Atwood Water Heaters</h1>
+<div>Replaces Dometic Atwood Control Boards 91349, 91420, 91504, 93254, 93307, 93865</div></body></html>"""
+
+
+class Tables(unittest.TestCase):
+    def test_replacement_chart_row(self):
+        f = sr.extract(RECPRO, "https://www.recpro.com/recpro-12v-electric-3-chamber-rv-water-pump/")
+        self.assertEqual(f["sku"], "RP-1004")
+        t = [c for c in f["compat"] if c.startswith("TABLE|")]
+        self.assertEqual(len(t), 1, f["compat"])
+        self.assertIn("|Shurflo=4008-101-A65|WFCO=PDS3B-130-1260E|Flojet=03526-144A|Flow Max=689052|Seaflo=SFDP1-030-045-33", t[0])
+        self.assertIn("Direct Replacement Chart", t[0])
+
+    def test_spec_table_is_not_a_cross_reference(self):
+        f = sr.extract(RECPRO, "https://www.recpro.com/x/")
+        self.assertFalse(any("Voltage" in c for c in f["compat"]))
+
+    def test_number_list_sentence_kept(self):
+        f = sr.extract(ETRAILER, "https://www.etrailer.com/p-AT91367.html")
+        self.assertIn("Replaces Dometic Atwood Control Boards 91349, 91420, 91504, 93254, 93307, 93865", f["compat"])
+
+
+class Sitemaps(unittest.TestCase):
+    def test_index_children_with_query_strings(self):
+        pages = {
+            "https://s.example/xmlsitemap.php": "<sitemapindex><sitemap><loc>https://s.example/xmlsitemap.php?type=products&amp;page=1</loc></sitemap>"
+                                                "<sitemap><loc>https://other.example/x.xml</loc></sitemap></sitemapindex>",
+            "https://s.example/xmlsitemap.php?type=products&page=1": "<urlset><url><loc>https://s.example/pump-a/</loc></url><url><loc>https://s.example/blog/x</loc></url></urlset>",
+        }
+        sent = []
+
+        class W:
+            Held = Exception
+        orig_read, orig_gw, orig_sleep = sr.read, sr.gateway, sr.time.sleep
+        sr.read = lambda w, u, l: pages[u].encode()
+        sr.gateway = lambda a, args=None, timeout=120: sent.append(args) or {"added": len(args["urls"])}
+        sr.time.sleep = lambda s: None
+        try:
+            sr.load_frontier(W, {"id": "t", "host": "s.example", "sitemap_url": "https://s.example/xmlsitemap.php",
+                                 "product_url_pattern": r"^https://s\.example/[a-z0-9-]+/$"})
+        finally:
+            sr.read, sr.gateway, sr.time.sleep = orig_read, orig_gw, orig_sleep
+        self.assertEqual(sent[0]["urls"], ["https://s.example/pump-a/"])
+
+
 if __name__ == "__main__":
     unittest.main()
