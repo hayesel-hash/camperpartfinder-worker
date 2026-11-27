@@ -281,9 +281,9 @@ First uses: Coleman-Mach 1976-579 Carrier adapters (16), PD4600 converter-sectio
 - Norcold N1095 (624870) is copy-protected -> skipped. N2090, N2152 and 2118 PolarMax were claimed and released
   unprocessed with layout notes (NO. | PART # | DESCRIPTION | X model columns; vertically centred numbers; SUPERSEDED TO
   notes; shaded = NOT AVAILABLE); 105 of their 267 numbers are already Norcold parts.
-- 27 Nov ~08:20 run (session_017XuwiMgNdUE7HhicEwjo7T): no new PDFs in Drive since 06:55. 23 files: Truma 5 (3 done, 2 held),
+- 27 Nov ~08:20 run (session_017XuwiMgNdUE7HhicEwjo7T): no new PDFs in Drive since 06:55. 21 files: Truma 5 (3 done, 2 held),
   Eberspächer 5 (3 done, 2 held), Dometic SeaLand 4 (partly published, held for rotated sheets), Girard / Girard Lippert 7 done.
-  884 new parts (Truma 64, Eberspächer 164, SeaLand 463, Lippert/Girard 189), ~800 existing parts evidenced, 4 Truma
+  880 new parts (Truma 64, Eberspächer 164, SeaLand 463, Lippert/Girard 189), 557 existing parts evidenced, 4 Truma
   supersessions. Manufacturer `Eberspächer` added (brand aliases Eberspaecher / Eberspacher / upper case).
   - "Truma - Caravan Heating and Water System Spare Parts Catalogue" (2 splits, camperlands.co.uk copy) prints Truma No. |
     Grove No. on every table -> held with the distributors, like the AL-KO / Grove list.
