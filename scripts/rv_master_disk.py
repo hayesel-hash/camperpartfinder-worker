@@ -141,7 +141,10 @@ def robots_policy(host):
 # the delay between its requests, up to the cap here (seconds). Any other host
 # with a Crawl-delay stays held for review. Roadmaster approved by Larry,
 # 25 Nov 2026.
-CRAWL_DELAY_REVIEWED = {"www.roadmasterinc.com": 60}
+CRAWL_DELAY_REVIEWED = {"www.roadmasterinc.com": 60,
+                        # Store cross-reference lane, Larry's blanket approval (27 Nov 2026): wait out the
+                        # retailer's own Crawl-delay rather than skip it.
+                        "pantherrvproducts.com": 30, "recpro.com": 30}
 LAST_FETCH = {}
 
 def merged_robot_rules(lines, token=AGENT):
